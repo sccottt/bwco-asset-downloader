@@ -8,10 +8,10 @@ The downloader:
 
 - Reads from any number of JSON API endpoints
 - Compiles a list of asset URLs, based on specified JSON nodes
-- Downloads assets to the local machine, naming the files to match the JSON schema
+- Downloads assets to a temporary folder on the local machine, naming the files to match the JSON schema
 - Rewrites the paths of the assets in the JSON file(s) to match the local path, and saves the JSON file(s) locally
 - Moves fully downloaded JSON and asset files to a specified location on the local machine, overwriting any existing JSON & assets
-
+- Clears the temporary downloads folder
 
 
 ## Quick start
@@ -32,6 +32,7 @@ npm start -- config.example.json
   - By default, the app will read its config values from `config.json`
   - To specify a different config file, add as an argument to the `npm start` script (e.g., `npm start -- config.custom.json`). The file must be sitting in the project folder.
 
+If the downloader fails at any point, the `temp` folder will contain whatever data and assets were downloaded before the failure. This folder can be cleared out by running `npm run clean`.
 
 ## Configuration
 
