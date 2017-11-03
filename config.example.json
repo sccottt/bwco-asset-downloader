@@ -1,0 +1,39 @@
+{
+  "schemas": [
+
+    {
+      "targetPath": "~/Desktop/Asset Downloader example/dogs",
+      "sources": [
+        {
+          "url": "https://dog.ceo/api/breed/bulldog/french/images/random",
+          "targetFolder": "French Bulldogs",
+          "targetFilename": "data.json"
+        },
+        {
+          "url": "https://dog.ceo/api/breed/pug/images/random",
+          "targetFolder": "Pugs",
+          "targetFilename": "data.json"
+        }
+      ],
+      "assets": [
+        "message"
+      ]
+    },
+
+    {
+      "targetPath": "~/Desktop/Asset Downloader example/NASA",
+      "sources": [
+        {
+          "url": "https://api.nasa.gov/planetary/apod?api_key=DEMO_KEY",
+          "targetFolder": "NASA APOD",
+          "targetFilename": "data.json"
+        }
+      ],
+      "assets": [
+        "hdurl",
+        "url"
+      ]
+    }
+
+  ]
+}
