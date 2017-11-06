@@ -62,7 +62,7 @@ Each string is formatted to dig down one node at a time through the JSON to reac
 e.g., the following `assets` array will capture all of the image and video URLs in the JSON below.
 
 ```json
-assets: [
+"assets": [
   "settings.background.img",
   "stories.img",
   "stories.vid",
