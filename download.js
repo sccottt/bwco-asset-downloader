@@ -178,21 +178,27 @@ function processSource(source, assets) {
   output(`  ${source.url}`.gray);
   output(``);
 
-  let sourceFolder = `${tempFolder}/${schemaIndex}/${source.targetFolder}`;
+  let schemaFolder = `${tempFolder}/${schemaIndex}`,
+      sourceFolder = schemaFolder + (source.targetFolder ? `/${source.targetFolder}` : ``),
+      assetsFolder = sourceFolder + (assets && assets.length ? `/assets` : ``);
 
-  output(`  Creating download folder '${source.targetFolder}'... `.gray, true);
-  mkdirp.sync(`${sourceFolder}/assets`);
+  output(`  Creating download folder '${assetsFolder}'... `.gray, true);
+  mkdirp.sync(assetsFolder);
   output(`✓`.green);
 
   output(`  Loading JSON data from server... `.gray, true);
   let data = JSON.parse(loadJSON(source.url));
   output(`✓`.green);
 
-  output(`  Compiling asset paths... `.gray, true);
-  assets.forEach((assetField, j) => {
-    processAssetField(assetField.split('.'), data, sourceFolder, 'assets/');
-  });
-  output(`✓`.green);
+  if (assets && assets.length) {
+    output(`  Compiling asset paths... `.gray, true);
+    assets.forEach((assetField, j) => {
+      processAssetField(assetField.split('.'), data, sourceFolder, 'assets/');
+    });
+    output(`✓`.green);
+  } else {
+    output(`  No assets defined... `.gray + `✓`.green);
+  }
 
   output(`  Writing JSON to local file... `.gray, true);
   fs.writeFileSync(`${sourceFolder}/${source.targetFilename}`, stringifyJSON(data));
@@ -371,34 +377,46 @@ function moveCompletedDownloads() {
 
   config.schemas.forEach((schema, schemaIndex) => {
 
-    output(`\n  Moving schema ${schemaIndex + 1} assets folders`);
+    output(`\n  Moving schema ${schemaIndex + 1} files`);
+
+    let schemaFromPath = `${__dirname}/${tempFolder}/${schemaIndex}`,
+        schemaToPath   = schema.targetPath,
+        hasAssets      = (schema.assets && schema.assets.length) ? true : false;
+
+    // ~ converts to home directory
+    if (schemaToPath.slice(0, 1) === '~') {
+      schemaToPath = `${os.homedir()}${schemaToPath.slice(1)}`;
+    }
+
+    // remove trailing slash
+    if (schemaToPath.slice(-1) === '/') {
+      schemaToPath = schemaToPath.slice(0, -1);
+    }
 
     schema.sources.forEach((source, sourceIndex) => {
 
-      let schemaPath = schema.targetPath;
+      let sourceFolder    = source.targetFolder ? `/${source.targetFolder}` : ``,
+          sourceFromPath  = schemaFromPath + sourceFolder,
+          sourceToPath    = schemaToPath + sourceFolder;
 
-      // ~ converts to home directory
-      if (schemaPath.slice(0, 1) === '~') {
-        schemaPath = `${os.homedir()}${schemaPath.slice(1)}`;
+      if (hasAssets) {
+
+        let assetsFromPath = `${sourceFromPath}/assets`,
+            assetsToPath   = `${sourceToPath}/assets`;
+
+        output(`    ${assetsToPath}/ `.gray, true);
+        moveFolder(assetsFromPath, assetsToPath);
+        output(`✓`.green);
+
       }
 
-      // remove trailing slash
-      if (schemaPath.slice(-1) === '/') {
-        schemaPath = schemaPath.slice(0, -1);
-      }
-
-      output(`    ${schemaPath}/${source.targetFolder} `.gray, true);
-
-      moveFolder(
-        `${__dirname}/${tempFolder}/${schemaIndex}/${source.targetFolder}`,
-        `${schemaPath}/${source.targetFolder}`
-      );
-
+      output(`    ${sourceToPath}/${source.targetFilename} `.gray, true);
+      moveFile(sourceFromPath, sourceToPath, source.targetFilename);
       output(`✓`.green);
 
-    })
+    });
 
-  })
+  });
 
   onAllAssetsMoved();
 
@@ -481,5 +499,16 @@ function moveFolder(oldPath, newPath) {
   mkdirp.sync(newPath);
   rimraf.sync(newPath);
   fs.renameSync(oldPath, newPath);
+
+}
+
+function moveFile(fromFolder, toFolder, filename) {
+
+  let fromPath = `${fromFolder}/${filename}`,
+      toPath   = `${toFolder}/${filename}`;
+
+  mkdirp.sync(toFolder);
+  rimraf.sync(toPath);
+  fs.renameSync(fromPath, toPath);
 
 }
