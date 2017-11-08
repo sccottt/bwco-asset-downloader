@@ -22,7 +22,7 @@ Clone and run the `sccottt/bwco-asset-downloader` repo to get started:
 git clone https://github.com/sccottt/bwco-asset-downloader
 cd bwco-asset-downloader
 npm install
-npm start -- config.example.json
+npm start -- --config config.example.json
 ```
 
 ## Usage
