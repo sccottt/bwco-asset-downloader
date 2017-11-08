@@ -64,20 +64,30 @@ npm run clean
 
 Configuration is made in the `config.json` file. An example [`config.example.json`](config.example.json) file is provided to demonstrate usage.
 
+### `projectPath`
+Full local path to the base directory of the relevant project. You may start the path with `~` to specify the home directory.
+
+_**Note**: this directory will **not** be overwritten_.
+
+### `targetFolder`
+Name of the folder within the project directory where all downloaded data should be stored. Typically, this is set to `assets`.
+
+_**Note**: this directory will **not** be overwritten_.
+
 ### `schemas`
 An array of `schema` objects, each representing a single JSON data format/structure.
 
 A `schema` may specify multiple [`sources`](#sources), so long as the JSON of each [`source`](#sources) follows the same data format/structure.
 
-- `targetPath`: Full local path where the data & assets should be downloaded. Start the path with `~` to specify the home directory. _**Note**: this directory will **not** be overwritten_.
 - `sources`: Array of [`sources`](#sources)
-- `assets`: Array of [`assets`](#assets)
+- `assets`: (optional) Array of [`assets`](#assets)
+    - If omitted, only the JSON for this source will be downloaded
 
 ### `sources`
 An array of `source` objects, each representing a single JSON API endpoint to read from.
 
 - `url`: Full URL to the JSON endpoint
-- `targetFolder`: Folder name (inside the inside the `schema`'s `targetPath`) where the data & assets for this `source` will be stored. _**Warning**: if a folder of the same name already exists here, it **will** be overwritten_.
+- `targetFolder`: Folder name (inside the inside the `schema`'s `targetPath`) where the data & assets for this `source` will be stored. _**Warning**: if a folder of the same name already exists here, its contents **will** be overwritten_.
 - `targetFilename`: Filename of the downloaded JSON data file
 
 ### `assets`

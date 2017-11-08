@@ -95,11 +95,7 @@ function onSchemaComplete() {
 }
 function onAllSchemasComplete() {
 
-  if (jsonOnly) {
-    onAllAssetsComplete();
-  } else {
-    downloadAssets();
-  }
+  downloadAssets();
 
 }
 
@@ -173,7 +169,7 @@ function processNextSource() {
   const schema = config.schemas[schemaIndex];
 
   if (sourceIndex < schema.sources.length) {
-    processSource(schema.sources[sourceIndex], jsonOnly ? [] : schema.assets);
+    processSource(schema.sources[sourceIndex], schema.assets);
   } else {
     onAllSourcesComplete();
   }
@@ -187,7 +183,8 @@ function processSource(source, assets) {
 
   let schemaFolder = `${tempFolder}/${schemaIndex}`,
       sourceFolder = schemaFolder + (source.targetFolder ? `/${source.targetFolder}` : ``),
-      assetsFolder = sourceFolder + (assets && assets.length ? `/assets` : ``);
+      assetsFolder = sourceFolder + (assets && assets.length ? `/assets` : ``),
+      outputFolder = config.targetFolder + (source.targetFolder ? `/${source.targetFolder}` : ``) + `/assets`;
 
   output(`  Creating download folder '${assetsFolder}'... `.gray, true);
   mkdirp.sync(assetsFolder);
@@ -200,7 +197,7 @@ function processSource(source, assets) {
   if (assets && assets.length) {
     output(`  Compiling asset paths... `.gray, true);
     assets.forEach((assetField, j) => {
-      processAssetField(assetField.split('.'), data, sourceFolder, 'assets/');
+      processAssetField(assetField.split('.'), data, sourceFolder, outputFolder, ``);
     });
     output(`✓`.green);
   } else {
@@ -217,12 +214,12 @@ function processSource(source, assets) {
 
 }
 
-function processAssetField(fields, obj, basePath, outputPath) {
+function processAssetField(fields, obj, basePath, outputPath, filenameParts) {
 
   let field           = fields[0],
       fieldsRemaining = fields.slice(1);
 
-  outputPath += field;
+  filenameParts += field;
 
   if (!fieldsRemaining.length) {
     if (obj[field]) {
@@ -231,23 +228,27 @@ function processAssetField(fields, obj, basePath, outputPath) {
         for (var i = 0; i < obj[field].length; i++) {
 
           let url       = obj[field][i],
-              filename  = `${outputPath}-${i}.${getFileExtension(url)}`,
-              fullPath  = `${basePath}/${filename}`;
+              filename  = `${filenameParts}-${i}.${getFileExtension(url)}`,
+              fullPath  = `${basePath}/assets/${filename}`;
 
-          addToDownloadQueue(url, fullPath);
+          if (!jsonOnly) {
+            addToDownloadQueue(url, fullPath);
+          }
 
-          obj[field][i] = filename;
+          obj[field][i] = `${outputPath}/${filename}`;
 
         }
       } else {
 
         let url       = obj[field],
-            filename  = `${outputPath}.${getFileExtension(url)}`,
-            fullPath  = `${basePath}/${filename}`;
+            filename  = `${filenameParts}.${getFileExtension(url)}`,
+            fullPath  = `${basePath}/assets/${filename}`;
 
-        addToDownloadQueue(url, fullPath);
+        if (!jsonOnly) {
+          addToDownloadQueue(url, fullPath);
+        }
 
-        obj[field]    = filename;
+        obj[field]    = `${outputPath}/${filename}`;
 
       }
 
@@ -257,11 +258,11 @@ function processAssetField(fields, obj, basePath, outputPath) {
 
     if (Array.isArray(obj[field])) {
       for (var i = 0; i < obj[field].length; i++) {
-        processAssetField(fieldsRemaining, obj[field][i], basePath, `${outputPath}-${i}-`);
+        processAssetField(fieldsRemaining, obj[field][i], basePath, outputPath, `${filenameParts}-${i}-`);
       }
 
     } else {
-      processAssetField(fieldsRemaining, obj[field], basePath, `${outputPath}-`);
+      processAssetField(fieldsRemaining, obj[field], basePath, outputPath, `${filenameParts}-`);
     }
 
   }
@@ -387,7 +388,7 @@ function moveCompletedDownloads() {
     output(`\n  Moving schema ${schemaIndex + 1} files`);
 
     let schemaFromPath = `${__dirname}/${tempFolder}/${schemaIndex}`,
-        schemaToPath   = schema.targetPath,
+        schemaToPath   = `${config.projectPath}/${config.targetFolder}`,
         hasAssets      = (!jsonOnly && schema.assets && schema.assets.length) ? true : false;
 
     // ~ converts to home directory

@@ -1,8 +1,8 @@
 {
+  "projectPath": "~/Desktop/Asset Downloader example",
+  "targetFolder": "assets",
   "schemas": [
-
     {
-      "targetPath": "~/Desktop/Asset Downloader example/dogs",
       "sources": [
         {
           "url": "https://dog.ceo/api/breed/bulldog/french/images/random",
@@ -19,9 +19,7 @@
         "message"
       ]
     },
-
     {
-      "targetPath": "~/Desktop/Asset Downloader example/NASA",
       "sources": [
         {
           "url": "https://api.nasa.gov/planetary/apod?api_key=DEMO_KEY",
@@ -34,6 +32,5 @@
         "url"
       ]
     }
-
   ]
 }
