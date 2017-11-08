@@ -28,11 +28,37 @@ npm start -- config.example.json
 ## Usage
 
 1. [Configure](#configuration) the downloader in the `config.json` file
-1. Run `npm start` to start the downloader
-  - By default, the app will read its config values from `config.json`
-  - To specify a different config file, add as an argument to the `npm start` script (e.g., `npm start -- config.custom.json`). The file must be sitting in the project folder.
+1. Run the downloader:
+```
+npm run start
+```
 
-If the downloader fails at any point, the `temp` folder will contain whatever data and assets were downloaded before the failure. This folder can be cleared out by running `npm run clean`.
+
+### Custom config file
+By default, the app will read its config values from `config.json`. To use a different config file, use the `--config` argument, like so:
+
+```
+npm start -- --config config.custom.json
+```
+
+_Note_: The file must be sitting in the project folder.
+
+### JSON only
+To skip all asset downloads and only download the JSON files, use the `-j` (or `--json_only`) argument, like so:
+
+```
+npm start -- -j
+npm start -- -json_only
+```
+
+_Note_: This can be used safely to update JSON files without affecting existing `assets` folders.
+
+### Temp folder
+If the downloader fails at any point, the `temp` folder will contain whatever data and assets were downloaded before the failure. This folder can be cleared out by running:
+
+```
+npm run clean
+```
 
 ## Configuration
 
