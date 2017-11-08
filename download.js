@@ -10,10 +10,11 @@ const colors   = require('colors'),
       rimraf   = require('rimraf'),
       progress = require('request-progress'),
       readline = require('readline'),
-      xhr      = require('xmlhttprequest');
+      xhr      = require('xmlhttprequest'),
+      argv     = require('minimist')(process.argv.slice(2));
 
 const pkg      = require('./package.json'),
-      config   = require('./' + (process.argv[2] ? process.argv[2] : 'config.json'));
+      config   = require(`./` + (argv.config ? argv.config : `config.json`));
 
 
 // Constants
@@ -30,6 +31,8 @@ var schemaIndex   = 0,
 var tempFolder    = '',
     downloadQueue = [],
     fileQueue     = new fq(1);
+
+var jsonOnly      = argv.j || argv.json_only;
 
 
 // Init
@@ -92,7 +95,11 @@ function onSchemaComplete() {
 }
 function onAllSchemasComplete() {
 
-  downloadAssets();
+  if (jsonOnly) {
+    onAllAssetsComplete();
+  } else {
+    downloadAssets();
+  }
 
 }
 
@@ -166,7 +173,7 @@ function processNextSource() {
   const schema = config.schemas[schemaIndex];
 
   if (sourceIndex < schema.sources.length) {
-    processSource(schema.sources[sourceIndex], schema.assets);
+    processSource(schema.sources[sourceIndex], jsonOnly ? [] : schema.assets);
   } else {
     onAllSourcesComplete();
   }
@@ -197,7 +204,7 @@ function processSource(source, assets) {
     });
     output(`✓`.green);
   } else {
-    output(`  No assets defined... `.gray + `✓`.green);
+    output(`  No assets to download... `.gray + `✓`.green);
   }
 
   output(`  Writing JSON to local file... `.gray, true);
@@ -381,7 +388,7 @@ function moveCompletedDownloads() {
 
     let schemaFromPath = `${__dirname}/${tempFolder}/${schemaIndex}`,
         schemaToPath   = schema.targetPath,
-        hasAssets      = (schema.assets && schema.assets.length) ? true : false;
+        hasAssets      = (!jsonOnly && schema.assets && schema.assets.length) ? true : false;
 
     // ~ converts to home directory
     if (schemaToPath.slice(0, 1) === '~') {
