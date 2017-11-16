@@ -48,7 +48,7 @@ To skip all asset downloads and only download the JSON files, use the `-j` (or `
 
 ```
 npm start -- -j
-npm start -- -json_only
+npm start -- --json_only
 ```
 
 _Note_: This can be used safely to update JSON files without affecting existing `assets` folders.
