@@ -307,39 +307,27 @@ function downloadNextAsset() {
 }
 function downloadAsset(url, localPaths) {
 
-  request.head(url, (err, res) => {
-    if (err) {
-      onAssetError(err);
-    } else {
+  const progressPrefix = `  ${rightAlignNum(downloadIndex + 1, downloadQueue.length)}/${downloadQueue.length}`;
 
-      let readStream   = request(url, { maxSockets: 1 }),
-          writeStream  = fileQueue.createWriteStream(`${__dirname}/${localPaths[0]}`).on('error', onAssetError);
+  const readStream  = request(url, { maxSockets: 1 }),
+        writeStream = fileQueue.createWriteStream(`${__dirname}/${localPaths[0]}`).on('error', onAssetError);
 
-      let readProgress = progress(readStream, {
-        throttle: 100
-      });
-
-      let progressPrefix = `  ${rightAlignNum(downloadIndex + 1, downloadQueue.length)}/${downloadQueue.length}`;
-
-      readProgress.on('error', onAssetError);
-
-      readProgress.on('progress', (state) => {
-        let suffix = formatFileSize(state.size.total);
-        outputDownloadProgress(progressPrefix, state.percent, suffix);
-      });
-
-      readProgress.on('end', () => {
-        if (localPaths.length > 1) {
-          copyAssetToPaths(localPaths[0], localPaths.slice(1));
-        }
-        outputDownloadProgress(progressPrefix, 1);
-        onAssetComplete();
-      });
-
-      readProgress.pipe(writeStream);
-
+  const readProgress = progress(readStream, {
+    throttle: 500
+  })
+  .on('error', onAssetError)
+  .on('progress', (state) => {
+    let suffix = formatFileSize(state.size.total);
+    outputDownloadProgress(progressPrefix, state.percent, suffix);
+  })
+  .on('end', () => {
+    if (localPaths.length > 1) {
+      copyAssetToPaths(localPaths[0], localPaths.slice(1));
     }
-  });
+    outputDownloadProgress(progressPrefix, 1);
+    onAssetComplete();
+  })
+  .pipe(writeStream);
 
 }
 
