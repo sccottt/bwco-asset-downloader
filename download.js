@@ -334,7 +334,12 @@ function downloadAsset(url, localPaths) {
 function copyAssetToPaths(source, targets) {
 
   targets.forEach((target) => {
-    fs.writeFileSync(`${__dirname}/${target}`, fs.readFileSync(`${__dirname}/${source}`));
+
+    let pathSrc  = `${__dirname}/${source}`,
+        pathTrgt = `${__dirname}/${target}`;
+
+    fs.createReadStream(pathSrc).pipe(fs.createWriteStream(pathTrgt));
+
   })
 
 }
