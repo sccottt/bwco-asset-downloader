@@ -317,7 +317,7 @@ function downloadAsset(url, localPaths) {
   })
   .on('error', onAssetError)
   .on('progress', (state) => {
-    let suffix = formatFileSize(state.size.total);
+    let suffix = `${formatFileSize(state.size.total)} (${formatFileSize(state.speed)}/s)`;
     outputDownloadProgress(progressPrefix, state.percent, suffix);
   })
   .on('end', () => {
