@@ -19,7 +19,8 @@ const pkg      = require('./package.json'),
 
 // Constants
 
-const TEMP_DL_FOLDER = "temp";
+const TEMP_DL_FOLDER = "temp",
+      DL_BAR_LENGTH  = 25;
 
 
 // Vars
@@ -58,29 +59,29 @@ function initWelcome() {
 
   output(``);
 
-  output(`┌───────────────────────┐`.green);
-  output(`│ `.green + `BWCo Asset Downloader` + ` │`.green + ` v${pkg.version}`);
-  output(`└───────────────────────┘`.green);
+  output(`\u250C\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2510`.green);
+  output(`\u2502 `.green + `BWCo Asset Downloader` + ` \u2502`.green + ` v${pkg.version}`);
+  output(`\u2514\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2518`.green);
 
   output(``);
 
-  output(`Downloading assets for ${config.schemas.length} JSON schema(s)`);
+  output(`  Downloading assets for ${config.schemas.length} JSON schema(s)`);
   config.schemas.forEach((schema, i) => {
-    output(`\n  Schema ${i + 1} sources`);
+    output(`\n    Schema ${i + 1} sources`);
     schema.sources.forEach((source, j) => {
-      output(`  - ${source.url}`.gray);
+      output(`      ${source.url}`.gray);
     })
   });
 
 }
 function initFolders() {
 
-  output(`Setting up folders`);
+  output(`  Setting up folders`);
 
-  output(`  Creating temporary downloads folder "${TEMP_DL_FOLDER}/${Date.now()}/"... `.gray, true)
+  output(`    Creating temporary downloads folder "${TEMP_DL_FOLDER}/${Date.now()}/"... `.gray, true)
   tempFolder = `${TEMP_DL_FOLDER}/${Date.now()}`;
   mkdirp.sync(tempFolder);
-  output(`✓`.green);
+  output(`\u2713`.green);
 
 }
 
@@ -113,13 +114,13 @@ function onAllSourcesComplete() {
 
 function onAssetComplete() {
 
-  output(`✓`.green);
-
   downloadIndex++;
   downloadNextAsset();
 
 }
 function onAllAssetsComplete() {
+
+  output(`\n`);
 
   moveCompletedDownloads();
 
@@ -132,14 +133,14 @@ function onAssetError(err) {
 
 function onAllAssetsMoved() {
 
-  output(`\n  Clearing temporary downloads folder... `.gray, true);
+  output(`  Clearing temporary downloads folder... `.gray, true);
   rimraf.sync(TEMP_DL_FOLDER);
-  output(`✓`.green);
+  output(`\u2713`.green);
 
   output(``);
-  output(`┌───┐`.green);
-  output(`│ `.green + `✓` + ` │`.green + ` All assets downloaded. Great job!`);
-  output(`└───┘`.green);
+  output(`\u250C\u2500\u2500\u2500\u2510`.green);
+  output(`\u2502 `.green + `\u2713` + ` \u2502`.green + ` All assets downloaded. Great job!`);
+  output(`\u2514\u2500\u2500\u2500\u2518`.green);
   output(``);
 
 }
@@ -177,37 +178,26 @@ function processNextSource() {
 }
 function processSource(source, assets) {
 
-  output(`Processing schema ${schemaIndex + 1}, source ${sourceIndex + 1}`);
-  output(`  ${source.url}`.gray);
-  output(``);
+  output(`  Processing schema ${schemaIndex + 1}, source ${sourceIndex + 1}:`);
+  output(`    ${source.url} `.gray, true);
 
   let schemaFolder = `${tempFolder}/${schemaIndex}`,
       sourceFolder = schemaFolder + (source.targetFolder ? `/${source.targetFolder}` : ``),
       assetsFolder = sourceFolder + (assets && assets.length ? `/assets` : ``),
       outputFolder = config.targetFolder + (source.targetFolder ? `/${source.targetFolder}` : ``) + `/assets`;
 
-  output(`  Creating download folder '${assetsFolder}'... `.gray, true);
   mkdirp.sync(assetsFolder);
-  output(`✓`.green);
 
-  output(`  Loading JSON data from server... `.gray, true);
   let data = JSON.parse(loadJSON(source.url));
-  output(`✓`.green);
 
   if (assets && assets.length) {
-    output(`  Compiling asset paths... `.gray, true);
     assets.forEach((assetField, j) => {
       processAssetField(assetField.split('.'), data, sourceFolder, outputFolder, ``);
     });
-    output(`✓`.green);
-  } else {
-    output(`  No assets to download... `.gray + `✓`.green);
   }
-
-  output(`  Writing JSON to local file... `.gray, true);
   fs.writeFileSync(`${sourceFolder}/${source.targetFilename}`, stringifyJSON(data));
-  output(`✓`.green);
 
+  output(`\u2713`.green);
   output(``);
 
   onSourceComplete();
@@ -307,24 +297,35 @@ function downloadNextAsset() {
 }
 function downloadAsset(url, localPaths) {
 
-  const progressPrefix = `  ${rightAlignNum(downloadIndex + 1, downloadQueue.length)}/${downloadQueue.length}`;
+  const progressPrefix = `  ${rightAlignNum(downloadIndex + 1, downloadQueue.length)}/${downloadQueue.length}`,
+        percTotal      = (downloadIndex + 1) / downloadQueue.length;
 
   const readStream  = request(url, { maxSockets: 1 }),
         writeStream = fileQueue.createWriteStream(`${__dirname}/${localPaths[0]}`).on('error', onAssetError);
 
+  let fileSize = 0,
+      speed    = 0;
+
   const readProgress = progress(readStream, {
-    throttle: 500
+    throttle: 100
   })
   .on('error', onAssetError)
   .on('progress', (state) => {
-    let suffix = `${formatFileSize(state.size.total)} (${formatFileSize(state.speed)}/s)`;
-    outputDownloadProgress(progressPrefix, state.percent, suffix);
+
+    fileSize = state.size.total;
+    speed    = state.speed;
+
+    let suffix = `${formatFileSize(fileSize)} (${formatFileSize(speed)}/s)`;
+
+    outputDownloadProgress(progressPrefix, state.percent, percTotal, suffix);
+
   })
   .on('end', () => {
     if (localPaths.length > 1) {
       copyAssetToPaths(localPaths[0], localPaths.slice(1));
     }
-    outputDownloadProgress(progressPrefix, 1);
+    let suffix = `${formatFileSize(fileSize)} (${formatFileSize(speed)}/s)` + ` \u2713`.green;
+    outputDownloadProgress(progressPrefix, 1, percTotal, suffix);
     onAssetComplete();
   })
   .pipe(writeStream);
@@ -344,17 +345,20 @@ function copyAssetToPaths(source, targets) {
 
 }
 
-function outputDownloadProgress(prefix, perc, suffix = ``) {
+function outputDownloadProgress(prefix, percFile, percTotal, suffix = ``) {
 
-  const BAR_MAX_LEN = 25;
+  const lenFile  = Math.ceil(DL_BAR_LENGTH * percFile),
+        lenTotal = Math.max(0, Math.ceil(DL_BAR_LENGTH * percTotal) - lenFile),
+        lenEmpty = DL_BAR_LENGTH - lenFile - lenTotal;
 
-  const len = Math.ceil(BAR_MAX_LEN * perc),
-        bar = `▇`.repeat(len),
-        space = `━`.repeat(BAR_MAX_LEN - len).gray
+  const barFile  = (lenFile  > 0) ? `\u2588`.repeat(lenFile) : ``,
+        barTotal = (lenTotal > 0) ? `\u2591`.repeat(lenTotal).green : ``,
+        barEmpty = (lenEmpty > 0) ? `\u2501`.repeat(lenEmpty).gray : ``;
 
   readline.clearLine(process.stdout);
   readline.cursorTo(process.stdout, 0);
-  process.stdout.write(`${prefix}`.gray + ` ${bar}${space} ${suffix}`);
+
+  process.stdout.write(`${prefix}`.gray + ` ${barFile}${barTotal}${barEmpty} ${suffix} `);
 
 }
 
@@ -364,21 +368,23 @@ function outputMsgBox(msg) {
       hLine = ``;
 
   for (var i = 0; i < (len + 2); i++) {
-    hLine += `─`;
+    hLine += `\u2500`;
   }
 
-  output(`┌${hLine}┐`.cyan);
-  output(`│ `.cyan + msg + ` │`.cyan);
-  output(`└${hLine}┘`.cyan);
+  output(`\u250C${hLine}\u2510`.cyan);
+  output(`\u2502 `.cyan + msg + ` \u2502`.cyan);
+  output(`\u2514${hLine}\u2518`.cyan);
   output(``);
 
 }
 
 function moveCompletedDownloads() {
 
+  outputMsgBox(`Moving files`)
+
   config.schemas.forEach((schema, schemaIndex) => {
 
-    output(`\n  Moving schema ${schemaIndex + 1} files`);
+    output(`  Moving schema ${schemaIndex + 1} files`);
 
     let schemaFromPath = `${__dirname}/${tempFolder}/${schemaIndex}`,
         schemaToPath   = `${config.projectPath}/${config.targetFolder}`,
@@ -407,15 +413,17 @@ function moveCompletedDownloads() {
 
         output(`    ${assetsToPath}/ `.gray, true);
         moveFolder(assetsFromPath, assetsToPath);
-        output(`✓`.green);
+        output(`\u2713`.green);
 
       }
 
       output(`    ${sourceToPath}/${source.targetFilename} `.gray, true);
       moveFile(sourceFromPath, sourceToPath, source.targetFilename);
-      output(`✓`.green);
+      output(`\u2713`.green);
 
     });
+
+    output(``);
 
   });
 
