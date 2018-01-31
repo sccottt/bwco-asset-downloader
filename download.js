@@ -42,13 +42,8 @@ function init() {
 }
 function initWelcome() {
 
-  output(``);
-
-  output(`\u250C\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2510`.green);
-  output(`\u2502 `.green + `BWCo Asset Downloader` + ` \u2502`.green + ` v${pkg.version}`);
-  output(`\u2514\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2518`.green);
-
-  output(``);
+  output();
+  outputMsgBox(`BWCo Asset Downloader v${pkg.version}`)
 
   output(`Downloading assets for ${config.schemas.length} JSON schema(s):`);
   config.schemas.forEach((schema, i) => {
@@ -58,7 +53,7 @@ function initWelcome() {
     })
   });
 
-  output(``);
+  output();
 
 }
 function initFolders() {
@@ -188,9 +183,9 @@ function copyAsset(fromPath, toPath) {
 
 function output(msg, partialLine) {
   if (partialLine) {
-    process.stdout.write(msg);
+    process.stdout.write(msg || ``);
   } else {
-    console.log(msg);
+    console.log(msg || ``);
   }
 
 }
@@ -206,7 +201,7 @@ function outputMsgBox(msg) {
   output(`\u250C${hLine}\u2510`.cyan);
   output(`\u2502 `.cyan + msg + ` \u2502`.cyan);
   output(`\u2514${hLine}\u2518`.cyan);
-  output(``);
+  output();
 
 }
 
