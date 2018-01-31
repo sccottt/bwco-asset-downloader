@@ -76,8 +76,16 @@ function loadSources() {
     Promise.all(schema.sources.map((source, sourceIndex) =>
       fetch(source.url)
         .then((result) => result.json())
-        .then((sourceData) => schema.assets.reduce((objs, fieldPath) => objs.concat(getDownloadObjs(sourceData, fieldPath)), []))
-        .then((downloadObjs) => processDownloadObjs(downloadObjs))
+        .then((sourceData) => {
+          return Promise.all(schema.assets.reduce((objs, fieldPath) => objs.concat(getDownloadObjs(sourceData, fieldPath)), []))
+            .then((downloadObjs) => processDownloadObjs(downloadObjs))
+            .then((result) => {
+              console.log(`\n\n`);
+              console.log(result);
+              console.log(`\n\n`);
+              console.log(sourceData);
+            })
+        })
     ))
   )).catch((error) => {
     output(`  ERROR: ${error}`.red);
@@ -141,7 +149,7 @@ function processDownloadObjs(objs) {
       let toDownload = {
         localPath: localPath,
         url: resolvedUrl
-      }
+      };
 
       let lastDownload = downloads.find((download) => (download.url === toDownload.url));
 
@@ -160,13 +168,11 @@ function processDownloadObjs(objs) {
 }
 function downloadAsset(download) {
 
-  downloads.push(download);
-
   console.log('Downloading asset');
   console.log(`  from: ${download.url}`);
   console.log(`  to:   ${download.localPath}`);
 
-  return new Promise((resolve, reject) => resolve());
+  return new Promise((resolve, reject) => resolve(`Downloaded to ${download.localPath}`));
 
 }
 function copyAsset(fromPath, toPath) {
@@ -175,7 +181,8 @@ function copyAsset(fromPath, toPath) {
   console.log(`  from: ${fromPath}`);
   console.log(`  to:   ${toPath}`);
 
-  return new Promise((resolve, reject) => resolve());
+  return new Promise((resolve, reject) => resolve(`Copied to ${toPath}`));
+
 }
 
 
