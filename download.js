@@ -22,8 +22,7 @@ const DL_BAR_LENGTH  = 25;
 
 // Vars
 
-var downloads  = [],
-    tempFolder = `temp/${Date.now()}`;
+var tempFolder    = `temp/${Date.now()}`;
 
 
 // Init
@@ -44,16 +43,16 @@ function init() {
   });
   output();
 
-  loadSources();
+  start();
 
 }
 
 
 // Functions
 
-function loadSources() {
+function start() {
 
-  outputMsgBox(`Downloading...`);
+  outputMsgBox(`Processing sources...`);
 
   Promise.all(config.schemas.map((schema, schemaIndex) =>
     Promise.all(schema.sources.map((source, sourceIndex) =>
@@ -69,16 +68,19 @@ function loadSources() {
 
           return Promise.all(schema.assets.reduce((objs, fieldPath) => objs.concat(getDownloadObjs(sourceData, fieldPath)), []))
             .then((downloadObjs) => processDownloadObjs(downloadObjs))
-            .then(() => fse.outputJson(pathJSON, sourceData))
+            .then(downloadAssets)
+            .then((result) => {
+              return fse.outputJson(pathJSON, sourceData)
+            })
 
         })
     ))
-  )).then((result) => {
-    console.log(`Complete!`);
-
-  }).catch((error) => {
+  ))
+  .then(() => {
+    output(`Done`);
+  })
+  .catch((error) => {
     output(`  ERROR: ${error}`.red);
-    console.log(error);
   });
 
 }
@@ -117,7 +119,7 @@ function getDownloadObjs(data, fieldPath) {
 
 function processDownloadObjs(objs) {
 
-  let downloads = [];
+  let downloadQueue = [];
 
   return Promise.all(objs.map((obj, objIndex) => {
 
@@ -126,54 +128,43 @@ function processDownloadObjs(objs) {
     return rp({
       uri: url,
       resolveWithFullResponse: true
-    }).then((res) => {
+    })
+    .then((resp) => new Promise((resolve, reject) => {
 
-      let resolvedUrl     = res.request.uri.href,
+      let resolvedUrl     = resp.request.uri.href,
           localPath       = `file://Users/scott/Desktop/${obj.filename}.${getFileExtension(resolvedUrl)}`;
 
       // Update path on object reference itself (to localPath),
       // for when the object is written to JSON
       obj.node[obj.field] = localPath;
 
-      let toDownload = {
-        localPath: localPath,
-        url: resolvedUrl
-      };
+      let queued = downloadQueue.find((download) => (download.url === resolvedUrl));
 
-      let lastDownload = downloads.find((download) => (download.url === toDownload.url));
-
-      downloads.push(toDownload);
-
-      if (lastDownload) {
-        return copyAsset(lastDownload.localPath, toDownload.localPath);
+      if (queued) {
+        queued.localPaths.push(localPath);
       } else {
-        return downloadAsset(toDownload);
+        downloadQueue.push({
+          url: resolvedUrl,
+          localPaths: [ localPath ]
+        })
       }
 
-    })
+      resolve();
 
+    }))
+
+  }))
+  .then(() => new Promise((resolve, reject) => {
+    resolve(downloadQueue);
   }));
 
 }
-function downloadAsset(download) {
 
-  console.log('Downloading asset');
-  console.log(`  from: ${download.url}`);
-  console.log(`  to:   ${download.localPath}`);
+function downloadAssets(queue) {
 
-  return new Promise((resolve, reject) => resolve(`Downloaded to ${download.localPath}`));
+  return new Promise((resolve, reject) => resolve());
 
 }
-function copyAsset(fromPath, toPath) {
-
-  console.log('Copying asset');
-  console.log(`  from: ${fromPath}`);
-  console.log(`  to:   ${toPath}`);
-
-  return new Promise((resolve, reject) => resolve(`Copied to ${toPath}`));
-
-}
-
 
 // Helpers
 
