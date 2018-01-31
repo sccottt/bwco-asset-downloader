@@ -70,8 +70,6 @@ function loadSources() {
 
   outputMsgBox(`Downloading...`);
 
-  //config.schemas[].sources[].url
-
   Promise.all(config.schemas.map((schema, schemaIndex) =>
     Promise.all(schema.sources.map((source, sourceIndex) =>
       fetch(source.url)
@@ -79,15 +77,13 @@ function loadSources() {
         .then((sourceData) => {
           return Promise.all(schema.assets.reduce((objs, fieldPath) => objs.concat(getDownloadObjs(sourceData, fieldPath)), []))
             .then((downloadObjs) => processDownloadObjs(downloadObjs))
-            .then((result) => {
-              console.log(`\n\n`);
-              console.log(result);
-              console.log(`\n\n`);
-              console.log(sourceData);
-            })
+            .then(() => writeSourceJSON(sourceData))
         })
     ))
-  )).catch((error) => {
+  )).then((result) => {
+    console.log(`Complete!`);
+
+  }).catch((error) => {
     output(`  ERROR: ${error}`.red);
     console.log(error);
   });
@@ -182,6 +178,13 @@ function copyAsset(fromPath, toPath) {
   console.log(`  to:   ${toPath}`);
 
   return new Promise((resolve, reject) => resolve(`Copied to ${toPath}`));
+
+}
+
+function writeSourceJSON(data) {
+
+  output();
+  output(JSON.stringify(data));
 
 }
 
