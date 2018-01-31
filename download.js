@@ -4,12 +4,9 @@
 const colors   = require('colors'),
       fetch    = require('node-fetch'),
       fq       = require('filequeue'),
-      fs       = require('fs'),
+      fse      = require('fs-extra'),
       os       = require('os'),
-      mkdirp   = require('mkdirp'),
-      request  = require('request'),
       rp       = require('request-promise-native'),
-      rimraf   = require('rimraf'),
       progress = require('request-progress'),
       readline = require('readline'),
       argv     = require('minimist')(process.argv.slice(2));
@@ -20,14 +17,13 @@ const pkg      = require('./package.json'),
 
 // Constants
 
-const TEMP_DL_FOLDER = 'temp',
-      DL_BAR_LENGTH  = 25;
+const DL_BAR_LENGTH  = 25;
 
 
 // Vars
 
 var downloads  = [],
-    tempFolder = '';
+    tempFolder = `temp/${Date.now()}`;
 
 
 // Init
@@ -35,14 +31,6 @@ var downloads  = [],
 init();
 
 function init() {
-
-  initWelcome();
-  initFolders();
-
-  loadSources();
-
-}
-function initWelcome() {
 
   output();
   outputMsgBox(`BWCo Asset Downloader v${pkg.version}`)
@@ -54,14 +42,9 @@ function initWelcome() {
       output(`    ${source.url}`.gray);
     })
   });
-
   output();
 
-}
-function initFolders() {
-
-  tempFolder = `${TEMP_DL_FOLDER}/${Date.now()}`;
-  mkdirp.sync(tempFolder);
+  loadSources();
 
 }
 
@@ -84,11 +67,9 @@ function loadSources() {
               pathJSON   = `${pathSource}/${source.targetFilename}`,
               pathOutput = config.targetFolder + (source.targetFolder ? `/${source.targetFolder}` : ``) + `/assets`;
 
-          mkdirp.sync(pathAssets);
-
           return Promise.all(schema.assets.reduce((objs, fieldPath) => objs.concat(getDownloadObjs(sourceData, fieldPath)), []))
             .then((downloadObjs) => processDownloadObjs(downloadObjs))
-            .then(() => writeSourceJSON(pathJSON, sourceData))
+            .then(() => fse.outputJson(pathJSON, sourceData))
 
         })
     ))
@@ -190,20 +171,6 @@ function copyAsset(fromPath, toPath) {
   console.log(`  to:   ${toPath}`);
 
   return new Promise((resolve, reject) => resolve(`Copied to ${toPath}`));
-
-}
-
-function writeSourceJSON(path, data) {
-
-  return new Promise(function(resolve, reject) {
-    fs.writeFile(path, stringifyJSON(data), (err) => {
-      if (err) {
-        reject(err);
-      } else {
-        resolve(data);
-      }
-    });
-  });
 
 }
 
