@@ -23,9 +23,11 @@ const pkg      = require('./package.json'),
 const TEMP_DL_FOLDER = 'temp',
       DL_BAR_LENGTH  = 25;
 
+
 // Vars
 
-var downloads = [];
+var downloads  = [],
+    tempFolder = '';
 
 
 // Init
@@ -75,9 +77,19 @@ function loadSources() {
       fetch(source.url)
         .then((result) => result.json())
         .then((sourceData) => {
+
+          let pathSchema = `${tempFolder}/${schemaIndex}`,
+              pathSource = pathSchema + (source.targetFolder ? `/${source.targetFolder}` : ``),
+              pathAssets = pathSource + (schema.assets && schema.assets.length ? `/assets` : ``),
+              pathJSON   = `${pathSource}/${source.targetFilename}`,
+              pathOutput = config.targetFolder + (source.targetFolder ? `/${source.targetFolder}` : ``) + `/assets`;
+
+          mkdirp.sync(pathAssets);
+
           return Promise.all(schema.assets.reduce((objs, fieldPath) => objs.concat(getDownloadObjs(sourceData, fieldPath)), []))
             .then((downloadObjs) => processDownloadObjs(downloadObjs))
-            .then(() => writeSourceJSON(sourceData))
+            .then(() => writeSourceJSON(pathJSON, sourceData))
+
         })
     ))
   )).then((result) => {
@@ -181,10 +193,17 @@ function copyAsset(fromPath, toPath) {
 
 }
 
-function writeSourceJSON(data) {
+function writeSourceJSON(path, data) {
 
-  output();
-  output(JSON.stringify(data));
+  return new Promise(function(resolve, reject) {
+    fs.writeFile(path, stringifyJSON(data), (err) => {
+      if (err) {
+        reject(err);
+      } else {
+        resolve(data);
+      }
+    });
+  });
 
 }
 
@@ -217,4 +236,13 @@ function outputMsgBox(msg) {
 
 function getFileExtension(file) {
   return file.split('.').pop().split('?').shift();
+}
+
+function stringifyJSON(json, emitUnicode) {
+  var result = JSON.stringify(json);
+  return emitUnicode ? result : result.replace(/[\u007f-\uffff]/g,
+    function(c) {
+      return '\\u'+('0000'+c.charCodeAt(0).toString(16)).slice(-4);
+    }
+  );
 }
