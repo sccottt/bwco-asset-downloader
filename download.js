@@ -2,15 +2,14 @@
 // Requires
 
 const colors   = require('colors'),
-      fq       = require('filequeue'),
+      fetch    = require('node-fetch'),
       fs       = require('fs'),
+      fse      = require('fs-extra'),
       os       = require('os'),
-      mkdirp   = require('mkdirp'),
       request  = require('request'),
-      rimraf   = require('rimraf'),
+      rp       = require('request-promise-native'),
       progress = require('request-progress'),
       readline = require('readline'),
-      xhr      = require('xmlhttprequest'),
       argv     = require('minimist')(process.argv.slice(2));
 
 const pkg      = require('./package.json'),
@@ -19,316 +18,214 @@ const pkg      = require('./package.json'),
 
 // Constants
 
-const TEMP_DL_FOLDER = "temp",
-      DL_BAR_LENGTH  = 25;
+const DL_BAR_LENGTH  = 40;
 
 
 // Vars
 
-var schemaIndex   = 0,
-    sourceIndex   = 0,
-    downloadIndex = 0;
-
-var tempFolder    = '',
-    downloadQueue = [],
-    fileQueue     = new fq(1);
-
-var jsonOnly      = argv.j || argv.json_only;
+var tempFolder = `temp/${Date.now()}`,
+    jsonOnly   = argv.j || argv.json_only;
 
 
 // Init
 
-init();
-
-function init() {
-
-  initWelcome();
-
-  output(``);
-  outputMsgBox(`Setting up`);
-
-  initFolders();
-
-  output(``);
-  outputMsgBox(`Processing sources`);
-
-  processNextSchema();
-
-}
-function initWelcome() {
-
-  output(``);
-
-  output(`\u250C\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2510`.green);
-  output(`\u2502 `.green + `BWCo Asset Downloader` + ` \u2502`.green + ` v${pkg.version}`);
-  output(`\u2514\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2518`.green);
-
-  output(``);
-
-  output(`  Downloading assets for ${config.schemas.length} JSON schema(s)`);
-  config.schemas.forEach((schema, i) => {
-    output(`\n    Schema ${i + 1} sources`);
-    schema.sources.forEach((source, j) => {
-      output(`      ${source.url}`.gray);
-    })
-  });
-
-}
-function initFolders() {
-
-  output(`  Setting up folders`);
-
-  output(`    Creating temporary downloads folder "${TEMP_DL_FOLDER}/${Date.now()}/"... `.gray, true)
-  tempFolder = `${TEMP_DL_FOLDER}/${Date.now()}`;
-  mkdirp.sync(tempFolder);
-  output(`\u2713`.green);
-
-}
-
-
-// Event handlers
-
-function onSchemaComplete() {
-
-  schemaIndex++;
-  processNextSchema();
-
-}
-function onAllSchemasComplete() {
-
-  downloadAssets();
-
-}
-
-function onSourceComplete() {
-
-  sourceIndex++;
-  processNextSource();
-
-}
-function onAllSourcesComplete() {
-
-  onSchemaComplete();
-
-}
-
-function onAssetComplete() {
-
-  downloadIndex++;
-  downloadNextAsset();
-
-}
-function onAllAssetsComplete() {
-
-  output(`\n`);
-
-  moveCompletedDownloads();
-
-}
-function onAssetError(err) {
-
-  output(`Error loading asset: ${err}`.red);
-
-}
-
-function onAllAssetsMoved() {
-
-  output(`  Clearing temporary downloads folder... `.gray, true);
-  rimraf.sync(TEMP_DL_FOLDER);
-  output(`\u2713`.green);
-
-  output(``);
-  output(`\u250C\u2500\u2500\u2500\u2510`.green);
-  output(`\u2502 `.green + `\u2713` + ` \u2502`.green + ` All assets downloaded. Great job!`);
-  output(`\u2514\u2500\u2500\u2500\u2518`.green);
-  output(``);
-
-}
+start();
 
 
 // Functions
 
-function processNextSchema() {
+function start() {
 
-  if (schemaIndex < config.schemas.length) {
-    processSchema(config.schemas[schemaIndex]);
-  } else {
-    onAllSchemasComplete();
-  }
+  outputWelcome();
+  outputBox(`Processing sources`);
 
-}
-function processSchema(schema) {
+  let allDownloads = [];
 
-  sourceIndex = 0;
+  Promise.all(config.schemas.map((schema, schemaIndex) =>
+    Promise.all(schema.sources.map((source, sourceIndex) =>
+      fetch(source.url)
+        .then((result) => result.json())
+        .then((sourceData) => {
 
-  processNextSource();
+          let pathSchema = `${tempFolder}/${schemaIndex}`,
+              pathSource = pathSchema + (source.targetFolder ? `/${source.targetFolder}` : ``),
+              pathAssets = pathSource + (schema.assets && schema.assets.length ? `/assets` : ``),
+              pathJSON   = `${pathSource}/${source.targetFilename}`,
+              pathOutput = config.targetFolder + (source.targetFolder ? `/${source.targetFolder}` : ``) + `/assets`;
 
-}
+          if (schema.assets) {
 
-function processNextSource() {
+            return Promise.all(schema.assets.reduce((downloads, fieldPath) => downloads.concat(getDownloadObjs(sourceData, fieldPath)), []))
+              .then((downloadObjs) => processDownloadObjs(downloadObjs, pathAssets, pathOutput))
+              .then((downloads) => {
+                outputSourceProcessed(schemaIndex, sourceIndex, source.url, downloads.length);
+                allDownloads = allDownloads.concat(downloads)
+              })
+              .then(() => fse.outputJson(pathJSON, sourceData))
 
-  const schema = config.schemas[schemaIndex];
+          } else {
+            outputSourceProcessed(schemaIndex, sourceIndex, source.url, 0);
 
-  if (sourceIndex < schema.sources.length) {
-    processSource(schema.sources[sourceIndex], schema.assets);
-  } else {
-    onAllSourcesComplete();
-  }
+            return new Promise((resolve, reject) => resolve())
 
-}
-function processSource(source, assets) {
-
-  output(`  Processing schema ${schemaIndex + 1}, source ${sourceIndex + 1}:`);
-  output(`    ${source.url} `.gray, true);
-
-  let schemaFolder = `${tempFolder}/${schemaIndex}`,
-      sourceFolder = schemaFolder + (source.targetFolder ? `/${source.targetFolder}` : ``),
-      assetsFolder = sourceFolder + (assets && assets.length ? `/assets` : ``),
-      outputFolder = config.targetFolder + (source.targetFolder ? `/${source.targetFolder}` : ``) + `/assets`;
-
-  mkdirp.sync(assetsFolder);
-
-  let data = JSON.parse(loadJSON(source.url));
-
-  if (assets && assets.length) {
-    assets.forEach((assetField, j) => {
-      processAssetField(assetField.split('.'), data, sourceFolder, outputFolder, ``);
-    });
-  }
-  fs.writeFileSync(`${sourceFolder}/${source.targetFilename}`, stringifyJSON(data));
-
-  output(`\u2713`.green);
-  output(``);
-
-  onSourceComplete();
-
-}
-
-function processAssetField(fields, obj, basePath, outputPath, filenameParts) {
-
-  let field           = fields[0],
-      fieldsRemaining = fields.slice(1);
-
-  filenameParts += field;
-
-  if (!fieldsRemaining.length) {
-    if (obj[field]) {
-
-      if (Array.isArray(obj[field])) {
-        for (var i = 0; i < obj[field].length; i++) {
-
-          let url       = obj[field][i],
-              filename  = `${filenameParts}-${i}.${getFileExtension(url)}`,
-              fullPath  = `${basePath}/assets/${filename}`;
-
-          if (!jsonOnly) {
-            addToDownloadQueue(url, fullPath);
           }
 
-          obj[field][i] = `${outputPath}/${filename}`;
+        })
+    ))
+  ))
+  .then(() => {
+    outputAllSourcesProcessed(allDownloads.length);
+    downloadAssets(allDownloads);
+  })
+  .catch((error) => {
+    console.log(error);
+  });
 
+}
+
+function getDownloadObjs(data, fieldPath) {
+
+  const objs            = [];
+  const addDownloadObjs = (node, fields, filename) => {
+
+    let field      = fields[0],
+        fieldsLeft = fields.slice(1);
+
+    filename      += field;
+
+    if (fieldsLeft.length) {
+      if (node[field]) {
+        if (Array.isArray(node[field])) {
+          for (let i = 0; i < node[field].length; i++) {
+            addDownloadObjs(node[field][i], fieldsLeft, `${filename}-${i + 1}-`);
+          }
+        } else {
+          addDownloadObjs(node[field], fieldsLeft, `${filename}-`);
         }
-      } else {
-
-        let url       = obj[field],
-            filename  = `${filenameParts}.${getFileExtension(url)}`,
-            fullPath  = `${basePath}/assets/${filename}`;
-
-        if (!jsonOnly) {
-          addToDownloadQueue(url, fullPath);
-        }
-
-        obj[field]    = `${outputPath}/${filename}`;
-
       }
-
-    }
-
-  } else if (obj[field]) {
-
-    if (Array.isArray(obj[field])) {
-      for (var i = 0; i < obj[field].length; i++) {
-        processAssetField(fieldsRemaining, obj[field][i], basePath, outputPath, `${filenameParts}-${i}-`);
-      }
-
     } else {
-      processAssetField(fieldsRemaining, obj[field], basePath, outputPath, `${filenameParts}-`);
+      objs.push({ node, field, filename });
     }
 
   }
 
+  addDownloadObjs(data, fieldPath.split('.'), '');
+
+  return objs;
+
 }
 
-function addToDownloadQueue(url, localPath) {
+function processDownloadObjs(objs, tempPath, outputPath) {
 
-  let item = downloadQueue.find((el) => (el.url === url));
+  let downloadQueue = [];
 
-  if (item) {
-    item.localPaths.push(localPath);
-  } else {
-    downloadQueue.push({
-      url: url,
-      localPaths: [
-        localPath
-      ]
+  return Promise.all(objs.map((obj, objIndex) => {
+
+    let url       = obj.node[obj.field];
+
+    return rp({
+      uri: url,
+      method: 'HEAD',
+      resolveWithFullResponse: true
     })
+    .then((resp) => new Promise((resolve, reject) => {
+
+      let resolvedUrl     = resp.request.uri.href,
+          localPath       = `${tempPath}/${obj.filename}.${getFileExtension(resolvedUrl)}`,
+          jsonPath        = `${outputPath}/${obj.filename}.${getFileExtension(resolvedUrl)}`;
+
+      // Update path on object reference itself (to jsonPath),
+      // for when the object is written to JSON locally
+      obj.node[obj.field] = jsonPath;
+
+      let queued = downloadQueue.find((download) => (download.url === resolvedUrl));
+
+      if (queued) {
+        queued.localPaths.push(localPath);
+      } else {
+        downloadQueue.push({
+          url: resolvedUrl,
+          localPaths: [ localPath ]
+        })
+      }
+
+      resolve();
+
+    }))
+    .catch((error) => console.log(error))
+
+  }))
+  .then(() => new Promise((resolve, reject) => {
+    resolve(downloadQueue);
+  }));
+
+}
+
+function downloadAssets(allDownloads) {
+
+  outputBox("Downloading assets");
+
+  let totalCount    = allDownloads.length,
+      downloadIndex = 0;
+
+  const onAssetError = (error) => {
+    output(`${error}`.red);
+    console.log(error);
   }
 
-}
+  const onAllDownloadsComplete = () => {
 
-function downloadAssets() {
+    output();
+    output();
+    output(`  ${totalCount}`.cyan + ` assets downloaded`);
+    output();
 
-  outputMsgBox(`Downloading assets`)
+    moveCompletedDownloads();
 
-  downloadNextAsset();
-
-}
-
-function downloadNextAsset() {
-
-  if (downloadIndex < downloadQueue.length) {
-    let asset = downloadQueue[downloadIndex];
-    downloadAsset(asset.url, asset.localPaths);
-
-  } else {
-    onAllAssetsComplete();
   }
 
-}
-function downloadAsset(url, localPaths) {
+  const downloadNext = () => {
 
-  const progressPrefix = `  ${rightAlignNum(downloadIndex + 1, downloadQueue.length)}/${downloadQueue.length}`,
-        percTotal      = (downloadIndex + 1) / downloadQueue.length;
+    const download   = allDownloads[downloadIndex],
+          outputPath = `${__dirname}/${download.localPaths[0]}`;
 
-  const readStream  = request(url, { maxSockets: 1 }),
-        writeStream = fileQueue.createWriteStream(`${__dirname}/${localPaths[0]}`).on('error', onAssetError);
+    let fileSize = 0;
 
-  let fileSize = 0,
-      speed    = 0;
+    fse.ensureFile(outputPath)
+      .then(() => {
+        const readStream  = request(download.url),
+              writeStream = fs.createWriteStream(outputPath).on('error', onAssetError);
 
-  const readProgress = progress(readStream, {
-    throttle: 100
-  })
-  .on('error', onAssetError)
-  .on('progress', (state) => {
+        const readProgress = progress(readStream, {
+          throttle: 100
+        })
+        .on('error', onAssetError)
+        .on('progress', (state) => {
+          fileSize = state.size.total;
+          outputDownloadProgress(downloadIndex, totalCount, fileSize, state.percent, state.speed)
+        })
+        .on('end', () => {
 
-    fileSize = state.size.total;
-    speed    = state.speed;
+          if (download.localPaths.length > 1) {
+            copyAssetToPaths(download.localPaths[0], download.localPaths.slice(1));
+          }
 
-    let suffix = `${formatFileSize(fileSize)} (${formatFileSize(speed)}/s)`;
+          outputDownloadProgress(downloadIndex, totalCount, fileSize, 1)
 
-    outputDownloadProgress(progressPrefix, state.percent, percTotal, suffix);
+          if (++downloadIndex < totalCount) {
+            downloadNext();
+          } else {
+            onAllDownloadsComplete();
+          }
 
-  })
-  .on('end', () => {
-    if (localPaths.length > 1) {
-      copyAssetToPaths(localPaths[0], localPaths.slice(1));
-    }
-    let suffix = `${formatFileSize(fileSize)} (${formatFileSize(speed)}/s)` + ` \u2713`.green;
-    outputDownloadProgress(progressPrefix, 1, percTotal, suffix);
-    onAssetComplete();
-  })
-  .pipe(writeStream);
+        })
+        .pipe(writeStream);
+
+      })
+
+  }
+
+  downloadNext();
 
 }
 
@@ -345,42 +242,9 @@ function copyAssetToPaths(source, targets) {
 
 }
 
-function outputDownloadProgress(prefix, percFile, percTotal, suffix = ``) {
-
-  const lenFile  = Math.ceil(DL_BAR_LENGTH * percFile),
-        lenTotal = Math.max(0, Math.ceil(DL_BAR_LENGTH * percTotal) - lenFile),
-        lenEmpty = DL_BAR_LENGTH - lenFile - lenTotal;
-
-  const barFile  = (lenFile  > 0) ? `\u2588`.repeat(lenFile) : ``,
-        barTotal = (lenTotal > 0) ? `\u2591`.repeat(lenTotal).green : ``,
-        barEmpty = (lenEmpty > 0) ? `\u2501`.repeat(lenEmpty).gray : ``;
-
-  readline.clearLine(process.stdout);
-  readline.cursorTo(process.stdout, 0);
-
-  process.stdout.write(`${prefix}`.gray + ` ${barFile}${barTotal}${barEmpty} ${suffix} `);
-
-}
-
-function outputMsgBox(msg) {
-
-  let len   = msg.length,
-      hLine = ``;
-
-  for (var i = 0; i < (len + 2); i++) {
-    hLine += `\u2500`;
-  }
-
-  output(`\u250C${hLine}\u2510`.cyan);
-  output(`\u2502 `.cyan + msg + ` \u2502`.cyan);
-  output(`\u2514${hLine}\u2518`.cyan);
-  output(``);
-
-}
-
 function moveCompletedDownloads() {
 
-  outputMsgBox(`Moving files`)
+  outputBox(`Moving files to project folder`)
 
   config.schemas.forEach((schema, schemaIndex) => {
 
@@ -411,41 +275,117 @@ function moveCompletedDownloads() {
         let assetsFromPath = `${sourceFromPath}/assets`,
             assetsToPath   = `${sourceToPath}/assets`;
 
-        output(`    ${assetsToPath}/ `.gray, true);
-        moveFolder(assetsFromPath, assetsToPath);
-        output(`\u2713`.green);
+        output(`    ${assetsToPath}/ `.gray);
+
+        fse.moveSync(assetsFromPath, assetsToPath, {
+          overwrite: true
+        })
 
       }
 
-      output(`    ${sourceToPath}/${source.targetFilename} `.gray, true);
-      moveFile(sourceFromPath, sourceToPath, source.targetFilename);
-      output(`\u2713`.green);
+      output(`    ${sourceToPath}/${source.targetFilename} `.gray);
+
+      fse.moveSync(`${sourceFromPath}/${source.targetFilename}`, `${sourceToPath}/${source.targetFilename}`, {
+        overwrite: true
+      });
 
     });
 
-    output(``);
+    output();
 
   });
 
-  onAllAssetsMoved();
+  outputBox(`All assets ready! Great job`)
 
 }
 
 
 // Helpers
 
-function loadJSON(url) {
-
-  var req = new xhr.XMLHttpRequest();
-
-  if (req) {
-    req.open('GET', url, false);
-    req.send(null);
-    return req.responseText;
+function output(msg, partialLine) {
+  if (partialLine) {
+    process.stdout.write(msg || ``);
+  } else {
+    console.log(msg || ``);
   }
 
-  return null;
+}
+function outputBox(msg) {
 
+  let len   = msg.length,
+      hLine = ``;
+
+  for (var i = 0; i < (len + 2); i++) {
+    hLine += `\u2500`;
+  }
+
+  output(`\u250C${hLine}\u2510`.cyan);
+  output(`\u2502 `.cyan + msg + ` \u2502`.cyan);
+  output(`\u2514${hLine}\u2518`.cyan);
+  output();
+
+}
+
+function outputWelcome() {
+
+  output();
+  outputBox(`BWCo Asset Downloader v${pkg.version}`)
+
+  output(`Downloading assets for ${config.schemas.length} JSON schemas`);
+  config.schemas.forEach((schema, i) => {
+    output(`\n  Schema ${i + 1}`);
+    schema.sources.forEach((source, j) => {
+      output(`    ${source.url}`.gray);
+    })
+  });
+  output();
+
+}
+function outputSourceProcessed(schemaIndex, sourceIndex, sourceUrl, count) {
+  output(`  Schema ${schemaIndex + 1}, source ${sourceIndex + 1} processed`)
+  output(`    ${sourceUrl}`.gray);
+  if (count > 0) {
+    output(`    ${count}`.cyan + ` downloads queued`.gray);
+  } else {
+    output(`    No assets to download`.gray);
+  }
+  output();
+}
+function outputAllSourcesProcessed(count) {
+  output();
+  output(`  All sources processed`);
+  output(`    ${count}`.cyan + ` downloads queued`.gray)
+  output();
+}
+function outputDownloadProgress(index, count, size, perc, speed = 0) {
+
+  const percTotal = (index + 1) / count,
+        prefix    = `${rightAlignNum(index + 1, count)}/${count}`,
+        suffix    = `${formatFileSize(size)}` + ((speed > 0) ? ` (${formatFileSize(speed)}/s)` : ``)
+
+  const lenFile  = Math.ceil(DL_BAR_LENGTH * perc),
+        lenTotal = Math.ceil(DL_BAR_LENGTH * percTotal);
+
+  const lenFT    = Math.min(lenFile, lenTotal),
+        lenF     = lenFile  - lenFT,
+        lenT     = lenTotal - lenFT,
+        lenEmpty = DL_BAR_LENGTH - (lenFT + lenF + lenT);
+
+  const barFT    = (lenFT    > 0) ? `\u2588`.repeat(lenFT).cyan : ``,
+        barF     = (lenF     > 0) ? `\u2588`.repeat(lenF).white : ``,
+        barT     = (lenT     > 0) ? `\u2501`.repeat(lenT).cyan : ``,
+        barEmpty = (lenEmpty > 0) ? `\u2501`.repeat(lenEmpty).gray : ``,
+        bar      = barFT + barF + barT + barEmpty;
+
+  readline.clearLine(process.stdout);
+  readline.cursorTo(process.stdout, 0);
+
+  process.stdout.write(`  ${prefix}`.gray + ` ${bar} ${suffix} `);
+
+}
+
+function getFileExtension(file) {
+  return file.split('.').pop().split('?').shift();
 }
 
 function stringifyJSON(json, emitUnicode) {
@@ -457,27 +397,12 @@ function stringifyJSON(json, emitUnicode) {
   );
 }
 
-function output(msg, partialLine) {
-  if (partialLine) {
-    process.stdout.write(msg);
-  } else {
-    console.log(msg);
-  }
+function rightAlignNum(num, maxNum) {
 
-}
+  const curLen = num.toString().length,
+        maxLen = maxNum.toString().length;
 
-function getFileExtension(file) {
-
-  var extension = file.split('.').pop();
-
-  if (extension.indexOf('?') != -1) {
-    return extension.split('?')[0];
-
-  } else if (extension.indexOf('&') != -1) {
-    return extension.split('&')[0];
-  }
-
-  return extension;
+  return ` `.repeat(maxLen - curLen) + num;
 
 }
 
@@ -491,33 +416,5 @@ function formatFileSize(bytes) {
   } else {
     return `${Math.ceil(bytes / MB)} MB`;
   }
-
-}
-
-function rightAlignNum(num, maxNum) {
-
-  const curLen = num.toString().length,
-        maxLen = maxNum.toString().length;
-
-  return ` `.repeat(maxLen - curLen) + num;
-
-}
-
-function moveFolder(oldPath, newPath) {
-
-  mkdirp.sync(newPath);
-  rimraf.sync(newPath);
-  fs.renameSync(oldPath, newPath);
-
-}
-
-function moveFile(fromFolder, toFolder, filename) {
-
-  let fromPath = `${fromFolder}/${filename}`,
-      toPath   = `${toFolder}/${filename}`;
-
-  mkdirp.sync(toFolder);
-  rimraf.sync(toPath);
-  fs.renameSync(fromPath, toPath);
 
 }
