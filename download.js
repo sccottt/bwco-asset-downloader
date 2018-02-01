@@ -73,7 +73,7 @@ function start() {
           if (schema.assets) {
 
             return Promise.all(schema.assets.reduce((downloads, fieldPath) => downloads.concat(getDownloadObjs(sourceData, fieldPath)), []))
-              .then((downloadObjs) => processDownloadObjs(downloadObjs, pathAssets))
+              .then((downloadObjs) => processDownloadObjs(downloadObjs, pathAssets, pathOutput))
               .then((downloads) => {
                 output(`  Schema ${schemaIndex + 1}, source ${sourceIndex + 1} processed`)
                 output(`    ${source.url}`.gray);
@@ -144,7 +144,7 @@ function getDownloadObjs(data, fieldPath) {
 
 }
 
-function processDownloadObjs(objs, path) {
+function processDownloadObjs(objs, tempPath, outputPath) {
 
   let downloadQueue = [];
 
@@ -160,11 +160,12 @@ function processDownloadObjs(objs, path) {
     .then((resp) => new Promise((resolve, reject) => {
 
       let resolvedUrl     = resp.request.uri.href,
-          localPath       = `${path}/${obj.filename}.${getFileExtension(resolvedUrl)}`;
+          localPath       = `${tempPath}/${obj.filename}.${getFileExtension(resolvedUrl)}`,
+          jsonPath        = `${outputPath}/${obj.filename}.${getFileExtension(resolvedUrl)}`;
 
-      // Update path on object reference itself (to localPath),
+      // Update path on object reference itself (to jsonPath),
       // for when the object is written to JSON locally
-      obj.node[obj.field] = localPath;
+      obj.node[obj.field] = jsonPath;
 
       let queued = downloadQueue.find((download) => (download.url === resolvedUrl));
 
