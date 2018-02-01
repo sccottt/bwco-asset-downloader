@@ -355,8 +355,8 @@ function outputDownloadProgress(index, count, size, perc, speed = 0) {
         lenEmpty = DL_BAR_LENGTH - (lenFT + lenF + lenT);
 
   const barFT    = (lenFT    > 0) ? `\u2588`.repeat(lenFT).cyan : ``,
-        barF     = (lenF     > 0) ? `\u2588`.repeat(lenF).white : ``,
-        barT     = (lenT     > 0) ? `\u2501`.repeat(lenT).cyan : ``,
+        barF     = (lenF     > 0) ? `\u2580`.repeat(lenF).white : ``,
+        barT     = (lenT     > 0) ? `\u2584`.repeat(lenT).cyan : ``,
         barEmpty = (lenEmpty > 0) ? `\u2501`.repeat(lenEmpty).gray : ``,
         bar      = barFT + barF + barT + barEmpty;
 
