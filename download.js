@@ -3,7 +3,6 @@
 
 const colors   = require('colors'),
       fetch    = require('node-fetch'),
-      fq       = require('filequeue'),
       fse      = require('fs-extra'),
       os       = require('os'),
       rp       = require('request-promise-native'),
@@ -32,7 +31,7 @@ init();
 function init() {
 
   output();
-  outputMsgBox(`BWCo Asset Downloader v${pkg.version}`)
+  outputBox(`BWCo Asset Downloader v${pkg.version}`)
 
   output(`Downloading assets for ${config.schemas.length} JSON schema(s):`);
   config.schemas.forEach((schema, i) => {
@@ -52,7 +51,9 @@ function init() {
 
 function start() {
 
-  outputMsgBox(`Processing sources...`);
+  outputBox(`Processing sources`);
+
+  let allDownloads = [];
 
   Promise.all(config.schemas.map((schema, schemaIndex) =>
     Promise.all(schema.sources.map((source, sourceIndex) =>
@@ -66,21 +67,44 @@ function start() {
               pathJSON   = `${pathSource}/${source.targetFilename}`,
               pathOutput = config.targetFolder + (source.targetFolder ? `/${source.targetFolder}` : ``) + `/assets`;
 
-          return Promise.all(schema.assets.reduce((objs, fieldPath) => objs.concat(getDownloadObjs(sourceData, fieldPath)), []))
-            .then((downloadObjs) => processDownloadObjs(downloadObjs))
-            .then(downloadAssets)
-            .then((result) => {
-              return fse.outputJson(pathJSON, sourceData)
-            })
+          if (schema.assets) {
+
+            return Promise.all(schema.assets.reduce((downloads, fieldPath) => downloads.concat(getDownloadObjs(sourceData, fieldPath)), []))
+              .then((downloadObjs) => processDownloadObjs(downloadObjs, pathAssets))
+              .then((downloads) => {
+                output(`  Schema ${schemaIndex + 1}, Source ${sourceIndex + 1} processed`)
+                output(`    ${source.url}`.gray);
+                output(`    ${downloads.length}`.cyan + ` downloads queued`.gray);
+                output();
+                allDownloads = allDownloads.concat(downloads)
+              })
+              .then(() => fse.outputJson(pathJSON, sourceData))
+
+          } else {
+            output(`  Schema ${schemaIndex + 1}, Source ${sourceIndex + 1} processed`);
+            output(`    ${source.url}`.gray);
+            output(`    0 downloads queued`.gray);
+            output();
+
+            return new Promise((resolve, reject) => resolve())
+
+          }
 
         })
     ))
   ))
   .then(() => {
-    output(`Done`);
+
+    output();
+    output(`  All sources processed`);
+    output(`    ${allDownloads.length}`.cyan + ` downloads queued`.gray)
+    output();
+
+    downloadAssets(allDownloads);
+
   })
   .catch((error) => {
-    output(`  ERROR: ${error}`.red);
+    console.log(error);
   });
 
 }
@@ -117,7 +141,7 @@ function getDownloadObjs(data, fieldPath) {
 
 }
 
-function processDownloadObjs(objs) {
+function processDownloadObjs(objs, path) {
 
   let downloadQueue = [];
 
@@ -127,15 +151,16 @@ function processDownloadObjs(objs) {
 
     return rp({
       uri: url,
+      method: 'HEAD',
       resolveWithFullResponse: true
     })
     .then((resp) => new Promise((resolve, reject) => {
 
       let resolvedUrl     = resp.request.uri.href,
-          localPath       = `file://Users/scott/Desktop/${obj.filename}.${getFileExtension(resolvedUrl)}`;
+          localPath       = `${path}/${obj.filename}.${getFileExtension(resolvedUrl)}`;
 
       // Update path on object reference itself (to localPath),
-      // for when the object is written to JSON
+      // for when the object is written to JSON locally
       obj.node[obj.field] = localPath;
 
       let queued = downloadQueue.find((download) => (download.url === resolvedUrl));
@@ -152,6 +177,7 @@ function processDownloadObjs(objs) {
       resolve();
 
     }))
+    .catch((error) => console.log(error))
 
   }))
   .then(() => new Promise((resolve, reject) => {
@@ -160,11 +186,15 @@ function processDownloadObjs(objs) {
 
 }
 
-function downloadAssets(queue) {
+function downloadAssets(allDownloads) {
 
-  return new Promise((resolve, reject) => resolve());
+  outputBox("Downloading assets");
+
+  return new Promise((resolve, reject) => resolve())
 
 }
+
+
 
 // Helpers
 
@@ -176,7 +206,7 @@ function output(msg, partialLine) {
   }
 
 }
-function outputMsgBox(msg) {
+function outputBox(msg) {
 
   let len   = msg.length,
       hLine = ``;
