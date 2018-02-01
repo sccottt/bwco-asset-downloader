@@ -29,31 +29,14 @@ var tempFolder = `temp/${Date.now()}`,
 
 // Init
 
-init();
-
-function init() {
-
-  output();
-  outputBox(`BWCo Asset Downloader v${pkg.version}`)
-
-  output(`Downloading assets for ${config.schemas.length} JSON schemas`);
-  config.schemas.forEach((schema, i) => {
-    output(`\n  Schema ${i + 1}`);
-    schema.sources.forEach((source, j) => {
-      output(`    ${source.url}`.gray);
-    })
-  });
-  output();
-
-  start();
-
-}
+start();
 
 
 // Functions
 
 function start() {
 
+  outputWelcome();
   outputBox(`Processing sources`);
 
   let allDownloads = [];
@@ -75,19 +58,13 @@ function start() {
             return Promise.all(schema.assets.reduce((downloads, fieldPath) => downloads.concat(getDownloadObjs(sourceData, fieldPath)), []))
               .then((downloadObjs) => processDownloadObjs(downloadObjs, pathAssets, pathOutput))
               .then((downloads) => {
-                output(`  Schema ${schemaIndex + 1}, source ${sourceIndex + 1} processed`)
-                output(`    ${source.url}`.gray);
-                output(`    ${downloads.length}`.cyan + ` downloads queued`.gray);
-                output();
+                outputSourceProcessed(schemaIndex, sourceIndex, source.url, downloads.length);
                 allDownloads = allDownloads.concat(downloads)
               })
               .then(() => fse.outputJson(pathJSON, sourceData))
 
           } else {
-            output(`  Schema ${schemaIndex + 1}, Source ${sourceIndex + 1} processed`);
-            output(`    ${source.url}`.gray);
-            output(`    No assets to download`.gray);
-            output();
+            outputSourceProcessed(schemaIndex, sourceIndex, source.url, 0);
 
             return new Promise((resolve, reject) => resolve())
 
@@ -97,14 +74,8 @@ function start() {
     ))
   ))
   .then(() => {
-
-    output();
-    output(`  All sources processed`);
-    output(`    ${allDownloads.length}`.cyan + ` downloads queued`.gray)
-    output();
-
+    outputAllSourcesProcessed(allDownloads.length);
     downloadAssets(allDownloads);
-
   })
   .catch((error) => {
     console.log(error);
@@ -271,33 +242,6 @@ function copyAssetToPaths(source, targets) {
 
 }
 
-function outputDownloadProgress(index, count, size, perc, speed = 0) {
-
-  const percTotal = (index + 1) / count,
-        prefix    = `${rightAlignNum(index + 1, count)}/${count}`,
-        suffix    = `${formatFileSize(size)}` + ((speed > 0) ? ` (${formatFileSize(speed)}/s)` : ``)
-
-  const lenFile  = Math.ceil(DL_BAR_LENGTH * perc),
-        lenTotal = Math.ceil(DL_BAR_LENGTH * percTotal);
-
-  const lenFT    = Math.min(lenFile, lenTotal),
-        lenF     = lenFile  - lenFT,
-        lenT     = lenTotal - lenFT,
-        lenEmpty = DL_BAR_LENGTH - (lenFT + lenF + lenT);
-
-  const barFT    = (lenFT    > 0) ? `\u2588`.repeat(lenFT).cyan : ``,
-        barF     = (lenF     > 0) ? `\u2588`.repeat(lenF).white : ``,
-        barT     = (lenT     > 0) ? `\u2501`.repeat(lenT).cyan : ``,
-        barEmpty = (lenEmpty > 0) ? `\u2501`.repeat(lenEmpty).gray : ``,
-        bar      = barFT + barF + barT + barEmpty;
-
-  readline.clearLine(process.stdout);
-  readline.cursorTo(process.stdout, 0);
-
-  process.stdout.write(`  ${prefix}`.gray + ` ${bar} ${suffix} `);
-
-}
-
 function moveCompletedDownloads() {
 
   outputBox(`Moving files to project folder`)
@@ -379,6 +323,64 @@ function outputBox(msg) {
   output(`\u2502 `.cyan + msg + ` \u2502`.cyan);
   output(`\u2514${hLine}\u2518`.cyan);
   output();
+
+}
+
+function outputWelcome() {
+
+  output();
+  outputBox(`BWCo Asset Downloader v${pkg.version}`)
+
+  output(`Downloading assets for ${config.schemas.length} JSON schemas`);
+  config.schemas.forEach((schema, i) => {
+    output(`\n  Schema ${i + 1}`);
+    schema.sources.forEach((source, j) => {
+      output(`    ${source.url}`.gray);
+    })
+  });
+  output();
+
+}
+function outputSourceProcessed(schemaIndex, sourceIndex, sourceUrl, count) {
+  output(`  Schema ${schemaIndex + 1}, source ${sourceIndex + 1} processed`)
+  output(`    ${sourceUrl}`.gray);
+  if (count > 0) {
+    output(`    ${count}`.cyan + ` downloads queued`.gray);
+  } else {
+    output(`    No assets to download`.gray);
+  }
+  output();
+}
+function outputAllSourcesProcessed(count) {
+  output();
+  output(`  All sources processed`);
+  output(`    ${count}`.cyan + ` downloads queued`.gray)
+  output();
+}
+function outputDownloadProgress(index, count, size, perc, speed = 0) {
+
+  const percTotal = (index + 1) / count,
+        prefix    = `${rightAlignNum(index + 1, count)}/${count}`,
+        suffix    = `${formatFileSize(size)}` + ((speed > 0) ? ` (${formatFileSize(speed)}/s)` : ``)
+
+  const lenFile  = Math.ceil(DL_BAR_LENGTH * perc),
+        lenTotal = Math.ceil(DL_BAR_LENGTH * percTotal);
+
+  const lenFT    = Math.min(lenFile, lenTotal),
+        lenF     = lenFile  - lenFT,
+        lenT     = lenTotal - lenFT,
+        lenEmpty = DL_BAR_LENGTH - (lenFT + lenF + lenT);
+
+  const barFT    = (lenFT    > 0) ? `\u2588`.repeat(lenFT).cyan : ``,
+        barF     = (lenF     > 0) ? `\u2588`.repeat(lenF).white : ``,
+        barT     = (lenT     > 0) ? `\u2501`.repeat(lenT).cyan : ``,
+        barEmpty = (lenEmpty > 0) ? `\u2501`.repeat(lenEmpty).gray : ``,
+        bar      = barFT + barF + barT + barEmpty;
+
+  readline.clearLine(process.stdout);
+  readline.cursorTo(process.stdout, 0);
+
+  process.stdout.write(`  ${prefix}`.gray + ` ${bar} ${suffix} `);
 
 }
 
