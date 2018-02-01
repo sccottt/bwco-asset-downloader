@@ -23,7 +23,8 @@ const DL_BAR_LENGTH  = 40;
 
 // Vars
 
-var tempFolder    = `temp/${Date.now()}`;
+var tempFolder = `temp/${Date.now()}`,
+    jsonOnly   = argv.j || argv.json_only;
 
 
 // Init
@@ -35,9 +36,9 @@ function init() {
   output();
   outputBox(`BWCo Asset Downloader v${pkg.version}`)
 
-  output(`Downloading assets for ${config.schemas.length} JSON schema(s):`);
+  output(`Downloading assets for ${config.schemas.length} JSON schemas`);
   config.schemas.forEach((schema, i) => {
-    output(`\n  Schema ${i + 1}:`);
+    output(`\n  Schema ${i + 1}`);
     schema.sources.forEach((source, j) => {
       output(`    ${source.url}`.gray);
     })
@@ -74,7 +75,7 @@ function start() {
             return Promise.all(schema.assets.reduce((downloads, fieldPath) => downloads.concat(getDownloadObjs(sourceData, fieldPath)), []))
               .then((downloadObjs) => processDownloadObjs(downloadObjs, pathAssets))
               .then((downloads) => {
-                output(`  Schema ${schemaIndex + 1}, Source ${sourceIndex + 1} processed`)
+                output(`  Schema ${schemaIndex + 1}, source ${sourceIndex + 1} processed`)
                 output(`    ${source.url}`.gray);
                 output(`    ${downloads.length}`.cyan + ` downloads queued`.gray);
                 output();
@@ -192,7 +193,8 @@ function downloadAssets(allDownloads) {
 
   outputBox("Downloading assets");
 
-  let downloadIndex = 0;
+  let totalCount    = allDownloads.length,
+      downloadIndex = 0;
 
   const onAssetError = (error) => {
     output(`${error}`.red);
@@ -200,9 +202,14 @@ function downloadAssets(allDownloads) {
   }
 
   const onAllDownloadsComplete = () => {
+
     output();
     output();
-    outputBox(`Assets downloaded. Great job!`)
+    output(`  ${totalCount}`.cyan + ` assets downloaded`);
+    output();
+
+    moveCompletedDownloads();
+
   }
 
   const downloadNext = () => {
@@ -223,7 +230,7 @@ function downloadAssets(allDownloads) {
         .on('error', onAssetError)
         .on('progress', (state) => {
           fileSize = state.size.total;
-          outputDownloadProgress(downloadIndex, allDownloads.length, fileSize, state.percent, state.speed)
+          outputDownloadProgress(downloadIndex, totalCount, fileSize, state.percent, state.speed)
         })
         .on('end', () => {
 
@@ -231,9 +238,9 @@ function downloadAssets(allDownloads) {
             copyAssetToPaths(download.localPaths[0], download.localPaths.slice(1));
           }
 
-          outputDownloadProgress(downloadIndex, allDownloads.length, fileSize, 1)
+          outputDownloadProgress(downloadIndex, totalCount, fileSize, 1)
 
-          if (++downloadIndex < allDownloads.length) {
+          if (++downloadIndex < totalCount) {
             downloadNext();
           } else {
             onAllDownloadsComplete();
@@ -287,6 +294,63 @@ function outputDownloadProgress(index, count, size, perc, speed = 0) {
   readline.cursorTo(process.stdout, 0);
 
   process.stdout.write(`  ${prefix}`.gray + ` ${bar} ${suffix} `);
+
+}
+
+function moveCompletedDownloads() {
+
+  outputBox(`Moving files to project folder`)
+
+  config.schemas.forEach((schema, schemaIndex) => {
+
+    output(`  Moving schema ${schemaIndex + 1} files`);
+
+    let schemaFromPath = `${__dirname}/${tempFolder}/${schemaIndex}`,
+        schemaToPath   = `${config.projectPath}/${config.targetFolder}`,
+        hasAssets      = (!jsonOnly && schema.assets && schema.assets.length) ? true : false;
+
+    // ~ converts to home directory
+    if (schemaToPath.slice(0, 1) === '~') {
+      schemaToPath = `${os.homedir()}${schemaToPath.slice(1)}`;
+    }
+
+    // remove trailing slash
+    if (schemaToPath.slice(-1) === '/') {
+      schemaToPath = schemaToPath.slice(0, -1);
+    }
+
+    schema.sources.forEach((source, sourceIndex) => {
+
+      let sourceFolder    = source.targetFolder ? `/${source.targetFolder}` : ``,
+          sourceFromPath  = schemaFromPath + sourceFolder,
+          sourceToPath    = schemaToPath + sourceFolder;
+
+      if (hasAssets) {
+
+        let assetsFromPath = `${sourceFromPath}/assets`,
+            assetsToPath   = `${sourceToPath}/assets`;
+
+        output(`    ${assetsToPath}/ `.gray);
+
+        fse.moveSync(assetsFromPath, assetsToPath, {
+          overwrite: true
+        })
+
+      }
+
+      output(`    ${sourceToPath}/${source.targetFilename} `.gray);
+
+      fse.moveSync(`${sourceFromPath}/${source.targetFilename}`, `${sourceToPath}/${source.targetFilename}`, {
+        overwrite: true
+      });
+
+    });
+
+    output();
+
+  });
+
+  outputBox(`All assets ready! Great job`)
 
 }
 
