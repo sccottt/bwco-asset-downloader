@@ -66,7 +66,7 @@ function start() {
           } else {
             outputSourceProcessed(schemaIndex, sourceIndex, source.url, 0);
 
-            return new Promise((resolve, reject) => resolve())
+            return fse.outputJson(pathJSON, sourceData);
 
           }
 
@@ -74,8 +74,15 @@ function start() {
     ))
   ))
   .then(() => {
+
     outputAllSourcesProcessed(allDownloads.length);
-    downloadAssets(allDownloads);
+
+    if (allDownloads.length) {
+      downloadAssets(allDownloads);
+    } else {
+      moveCompletedDownloads();
+    }
+
   })
   .catch((error) => {
     console.log(error);
@@ -331,7 +338,7 @@ function outputWelcome() {
   output();
   outputBox(`BWCo Asset Downloader v${pkg.version}`)
 
-  output(`Downloading assets for ${config.schemas.length} JSON schemas`);
+  output(`  Downloading assets for ${config.schemas.length} JSON schemas`);
   config.schemas.forEach((schema, i) => {
     output(`\n  Schema ${i + 1}`);
     schema.sources.forEach((source, j) => {
