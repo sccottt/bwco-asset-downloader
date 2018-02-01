@@ -3,8 +3,10 @@
 
 const colors   = require('colors'),
       fetch    = require('node-fetch'),
+      fs       = require('fs'),
       fse      = require('fs-extra'),
       os       = require('os'),
+      request  = require('request'),
       rp       = require('request-promise-native'),
       progress = require('request-progress'),
       readline = require('readline'),
@@ -16,7 +18,7 @@ const pkg      = require('./package.json'),
 
 // Constants
 
-const DL_BAR_LENGTH  = 25;
+const DL_BAR_LENGTH  = 40;
 
 
 // Vars
@@ -83,7 +85,7 @@ function start() {
           } else {
             output(`  Schema ${schemaIndex + 1}, Source ${sourceIndex + 1} processed`);
             output(`    ${source.url}`.gray);
-            output(`    0 downloads queued`.gray);
+            output(`    No assets to download`.gray);
             output();
 
             return new Promise((resolve, reject) => resolve())
@@ -190,10 +192,103 @@ function downloadAssets(allDownloads) {
 
   outputBox("Downloading assets");
 
-  return new Promise((resolve, reject) => resolve())
+  let downloadIndex = 0;
+
+  const onAssetError = (error) => {
+    output(`${error}`.red);
+    console.log(error);
+  }
+
+  const onAllDownloadsComplete = () => {
+    output();
+    output();
+    outputBox(`Assets downloaded. Great job!`)
+  }
+
+  const downloadNext = () => {
+
+    const download   = allDownloads[downloadIndex],
+          outputPath = `${__dirname}/${download.localPaths[0]}`;
+
+    let fileSize = 0;
+
+    fse.ensureFile(outputPath)
+      .then(() => {
+        const readStream  = request(download.url),
+              writeStream = fs.createWriteStream(outputPath).on('error', onAssetError);
+
+        const readProgress = progress(readStream, {
+          throttle: 100
+        })
+        .on('error', onAssetError)
+        .on('progress', (state) => {
+          fileSize = state.size.total;
+          outputDownloadProgress(downloadIndex, allDownloads.length, fileSize, state.percent, state.speed)
+        })
+        .on('end', () => {
+
+          if (download.localPaths.length > 1) {
+            copyAssetToPaths(download.localPaths[0], download.localPaths.slice(1));
+          }
+
+          outputDownloadProgress(downloadIndex, allDownloads.length, fileSize, 1)
+
+          if (++downloadIndex < allDownloads.length) {
+            downloadNext();
+          } else {
+            onAllDownloadsComplete();
+          }
+
+        })
+        .pipe(writeStream);
+
+      })
+
+  }
+
+  downloadNext();
 
 }
 
+function copyAssetToPaths(source, targets) {
+
+  targets.forEach((target) => {
+
+    let pathSrc  = `${__dirname}/${source}`,
+        pathTrgt = `${__dirname}/${target}`;
+
+    fs.createReadStream(pathSrc).pipe(fs.createWriteStream(pathTrgt));
+
+  })
+
+}
+
+function outputDownloadProgress(index, count, size, perc, speed = 0) {
+
+  const percTotal = (index + 1) / count,
+        prefix    = `${rightAlignNum(index + 1, count)}/${count}`,
+        suffix    = `${formatFileSize(size)}` + ((speed > 0) ? ` (${formatFileSize(speed)}/s)` : ``)
+
+  const lenFile  = Math.ceil(DL_BAR_LENGTH * perc),
+        lenTotal = Math.ceil(DL_BAR_LENGTH * percTotal);
+
+  const lenFT    = Math.min(lenFile, lenTotal),
+        lenF     = lenFile  - lenFT,
+        lenT     = lenTotal - lenFT,
+        lenEmpty = DL_BAR_LENGTH - (lenFT + lenF + lenT);
+
+  const barFT    = (lenFT    > 0) ? `\u2588`.repeat(lenFT).cyan : ``,
+        barF     = (lenF     > 0) ? `\u2588`.repeat(lenF).white : ``,
+        barT     = (lenT     > 0) ? `\u2501`.repeat(lenT).cyan : ``,
+        barEmpty = (lenEmpty > 0) ? `\u2501`.repeat(lenEmpty).gray : ``,
+        bar      = barFT + barF + barT + barEmpty;
+
+  readline.clearLine(process.stdout);
+  readline.cursorTo(process.stdout, 0);
+
+  process.stdout.write(`  ${prefix}`.gray + ` ${bar} ${suffix} `);
+
+}
 
 
 // Helpers
@@ -233,4 +328,26 @@ function stringifyJSON(json, emitUnicode) {
       return '\\u'+('0000'+c.charCodeAt(0).toString(16)).slice(-4);
     }
   );
+}
+
+function rightAlignNum(num, maxNum) {
+
+  const curLen = num.toString().length,
+        maxLen = maxNum.toString().length;
+
+  return ` `.repeat(maxLen - curLen) + num;
+
+}
+
+function formatFileSize(bytes) {
+
+  const KB = 1024,
+        MB = 1024 * 1024;
+
+  if (bytes < MB) {
+    return `${Math.ceil(bytes / KB)} KB`;
+  } else {
+    return `${Math.ceil(bytes / MB)} MB`;
+  }
+
 }
