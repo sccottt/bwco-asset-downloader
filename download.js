@@ -61,12 +61,12 @@ function start() {
                 outputSourceProcessed(schemaIndex, sourceIndex, source.url, downloads.length);
                 allDownloads = allDownloads.concat(downloads)
               })
-              .then(() => fse.outputJson(pathJSON, sourceData))
+              .then(() => fse.outputFile(pathJSON, stringifyJSON(sourceData)))
 
           } else {
             outputSourceProcessed(schemaIndex, sourceIndex, source.url, 0);
 
-            return fse.outputJson(pathJSON, sourceData);
+            return fse.outputFile(pathJSON, stringifyJSON(sourceData));
 
           }
 
@@ -307,31 +307,7 @@ function moveCompletedDownloads() {
 }
 
 
-// Helpers
-
-function output(msg, partialLine) {
-  if (partialLine) {
-    process.stdout.write(msg || ``);
-  } else {
-    console.log(msg || ``);
-  }
-
-}
-function outputBox(msg) {
-
-  let len   = msg.length,
-      hLine = ``;
-
-  for (var i = 0; i < (len + 2); i++) {
-    hLine += `\u2500`;
-  }
-
-  output(`\u250C${hLine}\u2510`.cyan);
-  output(`\u2502 `.cyan + msg + ` \u2502`.cyan);
-  output(`\u2514${hLine}\u2518`.cyan);
-  output();
-
-}
+// Output
 
 function outputWelcome() {
 
@@ -391,28 +367,36 @@ function outputDownloadProgress(index, count, size, perc, speed = 0) {
 
 }
 
+
+// Helpers
+
+function output(msg, partialLine) {
+  if (partialLine) {
+    process.stdout.write(msg || ``);
+  } else {
+    console.log(msg || ``);
+  }
+
+}
+function outputBox(msg) {
+
+  let len   = msg.length,
+      hLine = ``;
+
+  for (var i = 0; i < (len + 2); i++) {
+    hLine += `\u2500`;
+  }
+
+  output(`\u250C${hLine}\u2510`.cyan);
+  output(`\u2502 `.cyan + msg + ` \u2502`.cyan);
+  output(`\u2514${hLine}\u2518`.cyan);
+  output();
+
+}
+
 function getFileExtension(file) {
   return file.split('.').pop().split('?').shift();
 }
-
-function stringifyJSON(json, emitUnicode) {
-  var result = JSON.stringify(json);
-  return emitUnicode ? result : result.replace(/[\u007f-\uffff]/g,
-    function(c) {
-      return '\\u'+('0000'+c.charCodeAt(0).toString(16)).slice(-4);
-    }
-  );
-}
-
-function rightAlignNum(num, maxNum) {
-
-  const curLen = num.toString().length,
-        maxLen = maxNum.toString().length;
-
-  return ` `.repeat(maxLen - curLen) + num;
-
-}
-
 function formatFileSize(bytes) {
 
   const KB = 1024,
@@ -424,4 +408,22 @@ function formatFileSize(bytes) {
     return `${Math.ceil(bytes / MB)} MB`;
   }
 
+}
+
+function rightAlignNum(num, maxNum) {
+
+  const curLen = num.toString().length,
+        maxLen = maxNum.toString().length;
+
+  return ` `.repeat(maxLen - curLen) + num;
+
+}
+
+function stringifyJSON(json, emitUnicode) {
+  var result = JSON.stringify(json);
+  return emitUnicode ? result : result.replace(/[\u007f-\uffff]/g,
+    function(c) {
+      return '\\u'+('0000'+c.charCodeAt(0).toString(16)).slice(-4);
+    }
+  );
 }
