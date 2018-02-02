@@ -47,33 +47,21 @@ function start() {
         .then((result) => result.json())
         .then((sourceData) => {
 
-          let sourceFolder     = source.targetFolder ? `/${source.targetFolder}` : ``;
-              tempPath         = `${tempFolder}/${schemaIndex}${sourceFolder}`,
-              tempPathAssets   = `${tempPath}/assets`,
-              tempPathJsonFile = `${tempPath}/${source.targetFilename}`,
-              pathAssetInJson  = `${config.targetFolder}${sourceFolder}/assets`;
+          let sourceFolder       = source.targetFolder ? `/${source.targetFolder}` : ``;
+              downloadPath       = `${tempFolder}/${schemaIndex}${sourceFolder}`,
+              downloadPathAssets = `${downloadPath}/assets`,
+              downloadPathJson   = `${downloadPath}/${source.targetFilename}`,
+              isJsonPathAssets   = `${config.targetFolder}${sourceFolder}/assets`;
 
-          if (schema.assets) {
+          let assetObjs        = createAssetObjs(schema.assets, sourceData);
 
-            const assetObjs = createAssetObjs(schema.assets, sourceData);
+          outputSourceProcessed(schemaIndex, sourceIndex, source.url, assetObjs.length);
 
-            return createDownloadObjs(assetObjs, tempPathAssets, pathAssetInJson)
-              .then((downloadObjs) => {
-
-                outputSourceProcessed(schemaIndex, sourceIndex, source.url, downloadObjs.length);
-
-                downloadQueue = downloadQueue.concat(downloadObjs);
-
-                return fse.outputFile(tempPathJsonFile, stringifyJSON(sourceData)))
-
-              });
-
-          } else {
-            outputSourceProcessed(schemaIndex, sourceIndex, source.url, 0);
-
-            return fse.outputFile(tempPathJsonFile, stringifyJSON(sourceData));
-
-          }
+          return createDownloadObjs(assetObjs, downloadPathAssets, isJsonPathAssets)
+            .then((downloadObjs) => {
+              downloadQueue = downloadQueue.concat(downloadObjs);
+            })
+            .then(() => fse.outputFile(downloadPathJson, stringifyJSON(sourceData)))
 
         })
     ))
@@ -122,9 +110,11 @@ function createAssetObjs(fieldPaths, data) {
 
   }
 
-  fieldPaths.forEach((fieldPath) => {
-    addAssetObjs(data, fieldPath.split('.'), '');
-  })
+  if (fieldPaths && fieldPaths.length) {
+    fieldPaths.forEach((fieldPath) => {
+      addAssetObjs(data, fieldPath.split('.'), '');
+    })
+  }
 
   return objs;
 
