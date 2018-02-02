@@ -39,7 +39,7 @@ function start() {
   outputWelcome();
   outputBox(`Processing sources`);
 
-  let allDownloads = [];
+  let downloadQueue = [];
 
   Promise.all(config.schemas.map((schema, schemaIndex) =>
     Promise.all(schema.sources.map((source, sourceIndex) =>
@@ -47,26 +47,31 @@ function start() {
         .then((result) => result.json())
         .then((sourceData) => {
 
-          let pathSchema = `${tempFolder}/${schemaIndex}`,
-              pathSource = pathSchema + (source.targetFolder ? `/${source.targetFolder}` : ``),
-              pathAssets = pathSource + (schema.assets && schema.assets.length ? `/assets` : ``),
-              pathJSON   = `${pathSource}/${source.targetFilename}`,
-              pathOutput = config.targetFolder + (source.targetFolder ? `/${source.targetFolder}` : ``) + `/assets`;
+          let sourceFolder     = source.targetFolder ? `/${source.targetFolder}` : ``;
+              tempPath         = `${tempFolder}/${schemaIndex}${sourceFolder}`,
+              tempPathAssets   = `${tempPath}/assets`,
+              tempPathJsonFile = `${tempPath}/${source.targetFilename}`,
+              pathAssetInJson  = `${config.targetFolder}${sourceFolder}/assets`;
 
           if (schema.assets) {
 
-            return Promise.all(schema.assets.reduce((downloads, fieldPath) => downloads.concat(getDownloadObjs(sourceData, fieldPath)), []))
-              .then((downloadObjs) => processDownloadObjs(downloadObjs, pathAssets, pathOutput))
-              .then((downloads) => {
-                outputSourceProcessed(schemaIndex, sourceIndex, source.url, downloads.length);
-                allDownloads = allDownloads.concat(downloads)
-              })
-              .then(() => fse.outputFile(pathJSON, stringifyJSON(sourceData)))
+            const assetObjs = createAssetObjs(schema.assets, sourceData);
+
+            return createDownloadObjs(assetObjs, tempPathAssets, pathAssetInJson)
+              .then((downloadObjs) => {
+
+                outputSourceProcessed(schemaIndex, sourceIndex, source.url, downloadObjs.length);
+
+                downloadQueue = downloadQueue.concat(downloadObjs);
+
+                return fse.outputFile(tempPathJsonFile, stringifyJSON(sourceData)))
+
+              });
 
           } else {
             outputSourceProcessed(schemaIndex, sourceIndex, source.url, 0);
 
-            return fse.outputFile(pathJSON, stringifyJSON(sourceData));
+            return fse.outputFile(tempPathJsonFile, stringifyJSON(sourceData));
 
           }
 
@@ -75,10 +80,10 @@ function start() {
   ))
   .then(() => {
 
-    outputAllSourcesProcessed(allDownloads.length);
+    outputAllSourcesProcessed(downloadQueue.length);
 
-    if (allDownloads.length) {
-      downloadAssets(allDownloads);
+    if (downloadQueue.length) {
+      startDownloadQueue(downloadQueue);
     } else {
       moveCompletedDownloads();
     }
@@ -90,10 +95,11 @@ function start() {
 
 }
 
-function getDownloadObjs(data, fieldPath) {
+function createAssetObjs(fieldPaths, data) {
 
-  const objs            = [];
-  const addDownloadObjs = (node, fields, filename) => {
+  const objs = [];
+
+  const addAssetObjs = (node, fields, filename) => {
 
     let field      = fields[0],
         fieldsLeft = fields.slice(1);
@@ -104,10 +110,10 @@ function getDownloadObjs(data, fieldPath) {
       if (node[field]) {
         if (Array.isArray(node[field])) {
           for (let i = 0; i < node[field].length; i++) {
-            addDownloadObjs(node[field][i], fieldsLeft, `${filename}-${i + 1}-`);
+            addAssetObjs(node[field][i], fieldsLeft, `${filename}-${i + 1}-`);
           }
         } else {
-          addDownloadObjs(node[field], fieldsLeft, `${filename}-`);
+          addAssetObjs(node[field], fieldsLeft, `${filename}-`);
         }
       }
     } else {
@@ -116,45 +122,51 @@ function getDownloadObjs(data, fieldPath) {
 
   }
 
-  addDownloadObjs(data, fieldPath.split('.'), '');
+  fieldPaths.forEach((fieldPath) => {
+    addAssetObjs(data, fieldPath.split('.'), '');
+  })
 
   return objs;
 
 }
 
-function processDownloadObjs(objs, tempPath, outputPath) {
+function createDownloadObjs(objs, folderDownload, folderInJson) {
 
-  let downloadQueue = [];
+  let downloads = [];
 
   return Promise.all(objs.map((obj, objIndex) => {
 
     let url       = obj.node[obj.field];
+
+    const queueDownload = (from, to) => {
+      let queued = downloads.find((download) => (download.from === from));
+      if (!!queued) {
+        queued.to.push(to);
+      } else {
+        downloads.push({
+          from: from,
+          to: [ to ]
+        });
+      }
+    }
 
     return rp({
       uri: url,
       method: 'HEAD',
       resolveWithFullResponse: true
     })
-    .then((resp) => new Promise((resolve, reject) => {
+    .then((response) => new Promise((resolve, reject) => {
 
-      let resolvedUrl     = resp.request.uri.href,
-          localPath       = `${tempPath}/${obj.filename}.${getFileExtension(resolvedUrl)}`,
-          jsonPath        = `${outputPath}/${obj.filename}.${getFileExtension(resolvedUrl)}`;
+      let urlResolved  = response.request.uri.href,
+          filename     = `${obj.filename}.${getFileExtension(urlResolved)}`,
+          pathDownload = `${folderDownload}/${filename}`,
+          pathInJson   = `${folderInJson}/${filename}`;
 
-      // Update path on object reference itself (to jsonPath),
+      // Update path on object reference itself (to pathInJson),
       // for when the object is written to JSON locally
-      obj.node[obj.field] = jsonPath;
+      obj.node[obj.field] = pathInJson;
 
-      let queued = downloadQueue.find((download) => (download.url === resolvedUrl));
-
-      if (queued) {
-        queued.localPaths.push(localPath);
-      } else {
-        downloadQueue.push({
-          url: resolvedUrl,
-          localPaths: [ localPath ]
-        })
-      }
+      queueDownload(urlResolved, pathDownload);
 
       resolve();
 
@@ -163,16 +175,16 @@ function processDownloadObjs(objs, tempPath, outputPath) {
 
   }))
   .then(() => new Promise((resolve, reject) => {
-    resolve(downloadQueue);
+    resolve(downloads);
   }));
 
 }
 
-function downloadAssets(allDownloads) {
+function startDownloadQueue(queue) {
 
   outputBox("Downloading assets");
 
-  let totalCount    = allDownloads.length,
+  let totalCount    = queue.length,
       downloadIndex = 0;
 
   const onAssetError = (error) => {
@@ -193,14 +205,14 @@ function downloadAssets(allDownloads) {
 
   const downloadNext = () => {
 
-    const download   = allDownloads[downloadIndex],
-          outputPath = `${__dirname}/${download.localPaths[0]}`;
+    const download   = queue[downloadIndex],
+          outputPath = `${__dirname}/${download.to[0]}`;
 
     let fileSize = 0;
 
     fse.ensureFile(outputPath)
       .then(() => {
-        const readStream  = request(download.url),
+        const readStream  = request(download.from),
               writeStream = fs.createWriteStream(outputPath).on('error', onAssetError);
 
         const readProgress = progress(readStream, {
@@ -213,8 +225,8 @@ function downloadAssets(allDownloads) {
         })
         .on('end', () => {
 
-          if (download.localPaths.length > 1) {
-            copyAssetToPaths(download.localPaths[0], download.localPaths.slice(1));
+          if (download.to.length > 1) {
+            copyAssetToPaths(download.to[0], download.to.slice(1));
           }
 
           outputDownloadProgress(downloadIndex, totalCount, fileSize, 1)
@@ -229,6 +241,9 @@ function downloadAssets(allDownloads) {
         .pipe(writeStream);
 
       })
+      .catch((error) => {
+        console.log(error);
+      })
 
   }
 
@@ -237,6 +252,8 @@ function downloadAssets(allDownloads) {
 }
 
 function copyAssetToPaths(source, targets) {
+
+  console.log(targets);
 
   targets.forEach((target) => {
 
