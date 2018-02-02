@@ -53,33 +53,25 @@ function start() {
               downloadPathJson   = `${downloadPath}/${source.targetFilename}`,
               isJsonPathAssets   = `${config.targetFolder}${sourceFolder}/assets`;
 
-          let assetObjs        = createAssetObjs(schema.assets, sourceData);
+          let assetObjs          = createAssetObjs(schema.assets, sourceData);
 
           outputSourceProcessed(schemaIndex, sourceIndex, source.url, assetObjs.length);
 
           return createDownloadObjs(assetObjs, downloadPathAssets, isJsonPathAssets)
-            .then((downloadObjs) => {
-              downloadQueue = downloadQueue.concat(downloadObjs);
+            .then((objs) => {
+              downloadQueue = downloadQueue.concat(objs);
+              return fse.outputFile(downloadPathJson, stringifyJSON(sourceData));
             })
-            .then(() => fse.outputFile(downloadPathJson, stringifyJSON(sourceData)))
+            .catch((error) => console.log(error));
 
         })
     ))
   ))
   .then(() => {
-
     outputAllSourcesProcessed(downloadQueue.length);
-
-    if (downloadQueue.length) {
-      startDownloadQueue(downloadQueue);
-    } else {
-      moveCompletedDownloads();
-    }
-
+    startDownloadQueue(downloadQueue);
   })
-  .catch((error) => {
-    console.log(error);
-  });
+  .catch((error) => console.log(error));
 
 }
 
@@ -120,25 +112,25 @@ function createAssetObjs(fieldPaths, data) {
 
 }
 
-function createDownloadObjs(objs, folderDownload, folderInJson) {
+function createDownloadObjs(assetObjs, folderDownload, folderInJson) {
 
   let downloads = [];
 
-  return Promise.all(objs.map((obj, objIndex) => {
-
-    let url       = obj.node[obj.field];
-
-    const queueDownload = (from, to) => {
-      let queued = downloads.find((download) => (download.from === from));
-      if (!!queued) {
-        queued.to.push(to);
-      } else {
-        downloads.push({
-          from: from,
-          to: [ to ]
-        });
-      }
+  const queueDownload = (from, to) => {
+    let queued = downloads.find((download) => (download.from === from));
+    if (!!queued) {
+      queued.to.push(to);
+    } else {
+      downloads.push({
+        from: from,
+        to: [ to ]
+      });
     }
+  }
+
+  return Promise.all(assetObjs.map((assetObj, objIndex) => {
+
+    let url       = assetObj.node[assetObj.field];
 
     return rp({
       uri: url,
@@ -148,20 +140,20 @@ function createDownloadObjs(objs, folderDownload, folderInJson) {
     .then((response) => new Promise((resolve, reject) => {
 
       let urlResolved  = response.request.uri.href,
-          filename     = `${obj.filename}.${getFileExtension(urlResolved)}`,
+          filename     = `${assetObj.filename}.${getFileExtension(urlResolved)}`,
           pathDownload = `${folderDownload}/${filename}`,
           pathInJson   = `${folderInJson}/${filename}`;
 
       // Update path on object reference itself (to pathInJson),
       // for when the object is written to JSON locally
-      obj.node[obj.field] = pathInJson;
+      assetObj.node[assetObj.field] = pathInJson;
 
       queueDownload(urlResolved, pathDownload);
 
       resolve();
 
     }))
-    .catch((error) => console.log(error))
+    .catch((error) => console.log(error));
 
   }))
   .then(() => new Promise((resolve, reject) => {
@@ -174,8 +166,7 @@ function startDownloadQueue(queue) {
 
   outputBox("Downloading assets");
 
-  let totalCount    = queue.length,
-      downloadIndex = 0;
+  let downloadIndex = 0;
 
   const onAssetError = (error) => {
     output(`${error}`.red);
@@ -185,8 +176,7 @@ function startDownloadQueue(queue) {
   const onAllDownloadsComplete = () => {
 
     output();
-    output();
-    output(`  ${totalCount}`.cyan + ` assets downloaded`);
+    output(`  ${queue.length}`.cyan + ` assets downloaded`);
     output();
 
     moveCompletedDownloads();
@@ -195,61 +185,60 @@ function startDownloadQueue(queue) {
 
   const downloadNext = () => {
 
-    const download   = queue[downloadIndex],
-          outputPath = `${__dirname}/${download.to[0]}`;
+    const download     = queue[downloadIndex],
+          outputPath   = `${__dirname}/${download.to[0]}`;
 
-    let fileSize = 0;
+    fse.ensureFileSync(outputPath);
 
-    fse.ensureFile(outputPath)
-      .then(() => {
-        const readStream  = request(download.from),
-              writeStream = fs.createWriteStream(outputPath).on('error', onAssetError);
+    const readStream   = request(download.from),
+          writeStream  = fs.createWriteStream(outputPath).on('error', onAssetError);
 
-        const readProgress = progress(readStream, {
-          throttle: 100
-        })
-        .on('error', onAssetError)
-        .on('progress', (state) => {
-          fileSize = state.size.total;
-          outputDownloadProgress(downloadIndex, totalCount, fileSize, state.percent, state.speed)
-        })
-        .on('end', () => {
+    let fileSize       = 0;
 
-          if (download.to.length > 1) {
-            copyAssetToPaths(download.to[0], download.to.slice(1));
-          }
+    const readProgress = progress(readStream, {
+      throttle: 100
+    })
+    .on('error', onAssetError)
+    .on('progress', (state) => {
+      fileSize = state.size.total;
+      outputProgress(downloadIndex, queue.length, fileSize, state.percent, state.speed)
+    })
+    .on('end', () => {
 
-          outputDownloadProgress(downloadIndex, totalCount, fileSize, 1)
+      if (download.to.length > 1) {
+        copyAssetToPaths(download.to[0], download.to.slice(1));
+      }
 
-          if (++downloadIndex < totalCount) {
-            downloadNext();
-          } else {
-            onAllDownloadsComplete();
-          }
+      outputProgress(downloadIndex, queue.length, fileSize, 1)
 
-        })
-        .pipe(writeStream);
+      if (++downloadIndex < queue.length) {
+        downloadNext();
+      } else {
+        output();
+        onAllDownloadsComplete();
+      }
 
-      })
-      .catch((error) => {
-        console.log(error);
-      })
+    })
+    .pipe(writeStream);
 
   }
 
-  downloadNext();
+  if (!queue.length) {
+    onAllDownloadsComplete();
+  } else {
+    downloadNext();
+  }
 
 }
 
 function copyAssetToPaths(source, targets) {
-
-  console.log(targets);
 
   targets.forEach((target) => {
 
     let pathSrc  = `${__dirname}/${source}`,
         pathTrgt = `${__dirname}/${target}`;
 
+    fse.ensureFileSync(pathTrgt);
     fs.createReadStream(pathSrc).pipe(fs.createWriteStream(pathTrgt));
 
   })
@@ -266,7 +255,7 @@ function moveCompletedDownloads() {
 
     let schemaFromPath = `${__dirname}/${tempFolder}/${schemaIndex}`,
         schemaToPath   = `${config.projectPath}/${config.targetFolder}`,
-        hasAssets      = (!jsonOnly && schema.assets && schema.assets.length) ? true : false;
+        hasAssets      = !jsonOnly && !!schema.assets && !!schema.assets.length;
 
     // ~ converts to home directory
     if (schemaToPath.slice(0, 1) === '~') {
@@ -289,7 +278,7 @@ function moveCompletedDownloads() {
         let assetsFromPath = `${sourceFromPath}/assets`,
             assetsToPath   = `${sourceToPath}/assets`;
 
-        output(`    ${assetsToPath}/ `.gray);
+        output(`    ${assetsToPath}`.gray);
 
         fse.moveSync(assetsFromPath, assetsToPath, {
           overwrite: true
@@ -297,7 +286,7 @@ function moveCompletedDownloads() {
 
       }
 
-      output(`    ${sourceToPath}/${source.targetFilename} `.gray);
+      output(`    ${sourceToPath}/${source.targetFilename}`.gray);
 
       fse.moveSync(`${sourceFromPath}/${source.targetFilename}`, `${sourceToPath}/${source.targetFilename}`, {
         overwrite: true
@@ -342,12 +331,11 @@ function outputSourceProcessed(schemaIndex, sourceIndex, sourceUrl, count) {
   output();
 }
 function outputAllSourcesProcessed(count) {
-  output();
   output(`  All sources processed`);
   output(`    ${count}`.cyan + ` downloads queued`.gray)
   output();
 }
-function outputDownloadProgress(index, count, size, perc, speed = 0) {
+function outputProgress(index, count, size, perc, speed = 0) {
 
   const percTotal = (index + 1) / count,
         prefix    = `${rightAlignNum(index + 1, count)}/${count}`,
