@@ -65,7 +65,7 @@ npm run clean
 Configuration is made in the `config.json` file. An example [`config.example.json`](config.example.json) file is provided to demonstrate usage.
 
 ### `projectPath`
-Full local path to the base directory of the relevant project. You may start the path with `~` to specify the home directory.
+Full local path to the base directory of the relevant project. Rewritten asset paths in the JSON will be relative to this path. You may start the path with `~` to specify the home directory.
 
 _**Note**: this directory will **not** be overwritten_.
 
