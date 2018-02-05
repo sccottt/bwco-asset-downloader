@@ -1,6 +1,6 @@
 {
   "name": "bwco-asset-downloader",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "description": "Belle & Wissell, Co. Asset Downloader",
   "main": "download.js",
   "scripts": {

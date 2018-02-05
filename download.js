@@ -13,8 +13,9 @@ const colors   = require('colors'),
       readline = require('readline'),
       argv     = require('minimist')(process.argv.slice(2));
 
-const pkg      = require('./package.json'),
-      config   = require(`./` + (argv.config ? argv.config : `config.json`));
+const pkg        = require('./package.json'),
+      configFile = `./` + (argv.config ? argv.config : `config.json`),
+      config     = require(configFile);
 
 
 // Constants
@@ -37,7 +38,14 @@ start();
 
 function start() {
 
-  logMsgWelcome();
+  logBox(`BWCo Asset Downloader v${pkg.version}`, {
+    margin: {
+      top: 2
+    }
+  });
+
+  logSetup();
+
   logBox(`Processing sources`);
 
   let downloadQueue = [];
@@ -310,12 +318,14 @@ function moveCompletedFiles() {
 
 // Output
 
-function logMsgWelcome() {
+function logSetup() {
 
-  logMsg();
-  logBox(`BWCo Asset Downloader v${pkg.version}`);
+  if (jsonOnly) {
+    logMsg(`  WARNING: `.red + `JSON only mode enabled (skipping asset download)\n`);
+  }
 
-  logMsg(`  Downloading assets for ${config.schemas.length} JSON schemas`);
+  logMsg(`  Config: ${configFile}`);
+
   config.schemas.forEach((schema, i) => {
     logMsg(`\n  Schema ${i + 1}`);
     schema.sources.forEach((source, j) => {
