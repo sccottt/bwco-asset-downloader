@@ -50,15 +50,18 @@ function start() {
           let sourceFolder       = source.targetFolder ? `/${source.targetFolder}` : ``;
               downloadPath       = `${tempFolder}/${schemaIndex}${sourceFolder}`,
               downloadPathAssets = `${downloadPath}/assets`,
-              downloadPathJson   = `${downloadPath}/${source.targetFilename}`,
-              isJsonPathAssets   = `${config.targetFolder}${sourceFolder}/assets`;
+              inJsonPathAssets   = `${config.targetFolder}${sourceFolder}/assets`;
 
           let assetObjs          = createAssetObjs(schema.assets, sourceData);
 
           outputSourceProcessed(schemaIndex, sourceIndex, source.url, assetObjs.length);
 
-          return createDownloadObjs(assetObjs, downloadPathAssets, isJsonPathAssets)
+          return createDownloadObjs(assetObjs, downloadPathAssets, inJsonPathAssets)
             .then((objs) => {
+
+              let sourceFolder       = source.targetFolder ? `/${source.targetFolder}` : ``;
+                  downloadPathJson   = `${tempFolder}/${schemaIndex}${sourceFolder}/${source.targetFilename}`;
+
               downloadQueue = downloadQueue.concat(objs);
               return fse.outputFile(downloadPathJson, stringifyJSON(sourceData));
             })
