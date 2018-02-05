@@ -53,9 +53,10 @@ function start() {
               downloadPathAssets = `${downloadPath}/assets`,
               inJsonPathAssets   = `${config.targetFolder}${sourceFolder}/assets`;
 
-          let assetObjs          = createAssetObjs(schema.assets, sourceData);
+          let assetObjs          = createAssetObjs(schema.assets, sourceData),
+              assetCount         = jsonOnly ? 0 : assetObjs.length;
 
-          logMsgSourceProcessed(schemaIndex, sourceIndex, source.url, assetObjs.length);
+          logMsgSourceProcessed(schemaIndex, sourceIndex, source.url, assetCount);
 
           return createDownloadObjs(assetObjs, downloadPathAssets, inJsonPathAssets)
             .then((objs) => {
@@ -63,7 +64,10 @@ function start() {
               let sourceFolder       = source.targetFolder ? `/${source.targetFolder}` : ``;
                   downloadPathJson   = `${tempFolder}/${schemaIndex}${sourceFolder}/${source.targetFilename}`;
 
-              downloadQueue = downloadQueue.concat(objs);
+              if (!jsonOnly) {
+                downloadQueue = downloadQueue.concat(objs);
+              }
+
               return fse.outputFile(downloadPathJson, stringifyJSON(sourceData));
             })
             .catch((error) => console.log(error));
@@ -177,16 +181,6 @@ function startDownloadQueue(queue) {
     console.log(error);
   }
 
-  const onAllDownloadsComplete = () => {
-
-    logMsg();
-    logMsg(`  ${queue.length}`.cyan + ` assets downloaded`);
-    logMsg();
-
-    moveCompletedDownloads();
-
-  }
-
   const downloadNext = () => {
 
     const download     = queue[downloadIndex],
@@ -218,8 +212,12 @@ function startDownloadQueue(queue) {
       if (++downloadIndex < queue.length) {
         downloadNext();
       } else {
+        logMsg(`\n`);
+        logMsg(`  ${queue.length}`.cyan + ` assets downloaded`);
         logMsg();
-        onAllDownloadsComplete();
+
+        moveCompletedFiles();
+
       }
 
     })
@@ -228,7 +226,10 @@ function startDownloadQueue(queue) {
   }
 
   if (!queue.length) {
-    onAllDownloadsComplete();
+    logMsg(`  No assets to download`);
+    logMsg();
+    moveCompletedFiles();
+
   } else {
     downloadNext();
   }
@@ -249,7 +250,7 @@ function copyAssetToPaths(source, targets) {
 
 }
 
-function moveCompletedDownloads() {
+function moveCompletedFiles() {
 
   logBox(`Moving files to project folder`)
 
@@ -312,7 +313,7 @@ function moveCompletedDownloads() {
 function logMsgWelcome() {
 
   logMsg();
-  logBox(`BWCo Asset Downloader v${pkg.version}`)
+  logBox(`BWCo Asset Downloader v${pkg.version}`);
 
   logMsg(`  Downloading assets for ${config.schemas.length} JSON schemas`);
   config.schemas.forEach((schema, i) => {
