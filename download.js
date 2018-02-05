@@ -5,6 +5,7 @@ const colors   = require('colors'),
       fetch    = require('node-fetch'),
       fs       = require('fs'),
       fse      = require('fs-extra'),
+      logBox   = require('log-box'),
       os       = require('os'),
       request  = require('request'),
       rp       = require('request-promise-native'),
@@ -37,7 +38,7 @@ start();
 function start() {
 
   logMsgWelcome();
-  logInBox(`Processing sources`);
+  logBox(`Processing sources`);
 
   let downloadQueue = [];
 
@@ -167,7 +168,7 @@ function createDownloadObjs(assetObjs, folderDownload, folderInJson) {
 
 function startDownloadQueue(queue) {
 
-  logInBox("Downloading assets");
+  logBox("Downloading assets");
 
   let downloadIndex = 0;
 
@@ -250,7 +251,7 @@ function copyAssetToPaths(source, targets) {
 
 function moveCompletedDownloads() {
 
-  logInBox(`Moving files to project folder`)
+  logBox(`Moving files to project folder`)
 
   config.schemas.forEach((schema, schemaIndex) => {
 
@@ -301,7 +302,7 @@ function moveCompletedDownloads() {
 
   });
 
-  logInBox(`All assets ready! Great job`)
+  logBox(`All assets ready! Great job`)
 
 }
 
@@ -311,7 +312,7 @@ function moveCompletedDownloads() {
 function logMsgWelcome() {
 
   logMsg();
-  logInBox(`BWCo Asset Downloader v${pkg.version}`)
+  logBox(`BWCo Asset Downloader v${pkg.version}`)
 
   logMsg(`  Downloading assets for ${config.schemas.length} JSON schemas`);
   config.schemas.forEach((schema, i) => {
@@ -374,21 +375,6 @@ function logMsg(msg, partialLine) {
   } else {
     console.log(msg || ``);
   }
-
-}
-function logInBox(msg) {
-
-  let len   = msg.length,
-      hLine = ``;
-
-  for (var i = 0; i < (len + 2); i++) {
-    hLine += `\u2500`;
-  }
-
-  logMsg(`\u250C${hLine}\u2510`.cyan);
-  logMsg(`\u2502 `.cyan + msg + ` \u2502`.cyan);
-  logMsg(`\u2514${hLine}\u2518`.cyan);
-  logMsg();
 
 }
 
