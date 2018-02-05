@@ -36,8 +36,8 @@ start();
 
 function start() {
 
-  outputWelcome();
-  outputBox(`Processing sources`);
+  logMsgWelcome();
+  logInBox(`Processing sources`);
 
   let downloadQueue = [];
 
@@ -54,7 +54,7 @@ function start() {
 
           let assetObjs          = createAssetObjs(schema.assets, sourceData);
 
-          outputSourceProcessed(schemaIndex, sourceIndex, source.url, assetObjs.length);
+          logMsgSourceProcessed(schemaIndex, sourceIndex, source.url, assetObjs.length);
 
           return createDownloadObjs(assetObjs, downloadPathAssets, inJsonPathAssets)
             .then((objs) => {
@@ -71,7 +71,7 @@ function start() {
     ))
   ))
   .then(() => {
-    outputAllSourcesProcessed(downloadQueue.length);
+    logMsgSourcesProcessed(downloadQueue.length);
     startDownloadQueue(downloadQueue);
   })
   .catch((error) => console.log(error));
@@ -167,20 +167,20 @@ function createDownloadObjs(assetObjs, folderDownload, folderInJson) {
 
 function startDownloadQueue(queue) {
 
-  outputBox("Downloading assets");
+  logInBox("Downloading assets");
 
   let downloadIndex = 0;
 
   const onAssetError = (error) => {
-    output(`${error}`.red);
+    logMsg(`${error}`.red);
     console.log(error);
   }
 
   const onAllDownloadsComplete = () => {
 
-    output();
-    output(`  ${queue.length}`.cyan + ` assets downloaded`);
-    output();
+    logMsg();
+    logMsg(`  ${queue.length}`.cyan + ` assets downloaded`);
+    logMsg();
 
     moveCompletedDownloads();
 
@@ -204,7 +204,7 @@ function startDownloadQueue(queue) {
     .on('error', onAssetError)
     .on('progress', (state) => {
       fileSize = state.size.total;
-      outputProgress(downloadIndex, queue.length, fileSize, state.percent, state.speed)
+      logMsgProgress(downloadIndex, queue.length, fileSize, state.percent, state.speed)
     })
     .on('end', () => {
 
@@ -212,12 +212,12 @@ function startDownloadQueue(queue) {
         copyAssetToPaths(download.to[0], download.to.slice(1));
       }
 
-      outputProgress(downloadIndex, queue.length, fileSize, 1)
+      logMsgProgress(downloadIndex, queue.length, fileSize, 1)
 
       if (++downloadIndex < queue.length) {
         downloadNext();
       } else {
-        output();
+        logMsg();
         onAllDownloadsComplete();
       }
 
@@ -250,11 +250,11 @@ function copyAssetToPaths(source, targets) {
 
 function moveCompletedDownloads() {
 
-  outputBox(`Moving files to project folder`)
+  logInBox(`Moving files to project folder`)
 
   config.schemas.forEach((schema, schemaIndex) => {
 
-    output(`  Moving schema ${schemaIndex + 1} files`);
+    logMsg(`  Moving schema ${schemaIndex + 1} files`);
 
     let schemaFromPath = `${__dirname}/${tempFolder}/${schemaIndex}`,
         schemaToPath   = `${config.projectPath}/${config.targetFolder}`,
@@ -281,7 +281,7 @@ function moveCompletedDownloads() {
         let assetsFromPath = `${sourceFromPath}/assets`,
             assetsToPath   = `${sourceToPath}/assets`;
 
-        output(`    ${assetsToPath}`.gray);
+        logMsg(`    ${assetsToPath}`.gray);
 
         fse.moveSync(assetsFromPath, assetsToPath, {
           overwrite: true
@@ -289,7 +289,7 @@ function moveCompletedDownloads() {
 
       }
 
-      output(`    ${sourceToPath}/${source.targetFilename}`.gray);
+      logMsg(`    ${sourceToPath}/${source.targetFilename}`.gray);
 
       fse.moveSync(`${sourceFromPath}/${source.targetFilename}`, `${sourceToPath}/${source.targetFilename}`, {
         overwrite: true
@@ -297,48 +297,48 @@ function moveCompletedDownloads() {
 
     });
 
-    output();
+    logMsg();
 
   });
 
-  outputBox(`All assets ready! Great job`)
+  logInBox(`All assets ready! Great job`)
 
 }
 
 
 // Output
 
-function outputWelcome() {
+function logMsgWelcome() {
 
-  output();
-  outputBox(`BWCo Asset Downloader v${pkg.version}`)
+  logMsg();
+  logInBox(`BWCo Asset Downloader v${pkg.version}`)
 
-  output(`  Downloading assets for ${config.schemas.length} JSON schemas`);
+  logMsg(`  Downloading assets for ${config.schemas.length} JSON schemas`);
   config.schemas.forEach((schema, i) => {
-    output(`\n  Schema ${i + 1}`);
+    logMsg(`\n  Schema ${i + 1}`);
     schema.sources.forEach((source, j) => {
-      output(`    ${source.url}`.gray);
+      logMsg(`    ${source.url}`.gray);
     })
   });
-  output();
+  logMsg();
 
 }
-function outputSourceProcessed(schemaIndex, sourceIndex, sourceUrl, count) {
-  output(`  Schema ${schemaIndex + 1}, source ${sourceIndex + 1} processed`)
-  output(`    ${sourceUrl}`.gray);
+function logMsgSourceProcessed(schemaIndex, sourceIndex, sourceUrl, count) {
+  logMsg(`  Schema ${schemaIndex + 1}, source ${sourceIndex + 1} processed`)
+  logMsg(`    ${sourceUrl}`.gray);
   if (count > 0) {
-    output(`    ${count}`.cyan + ` downloads queued`.gray);
+    logMsg(`    ${count}`.cyan + ` downloads queued`.gray);
   } else {
-    output(`    No assets to download`.gray);
+    logMsg(`    No assets to download`.gray);
   }
-  output();
+  logMsg();
 }
-function outputAllSourcesProcessed(count) {
-  output(`  All sources processed`);
-  output(`    ${count}`.cyan + ` downloads queued`.gray)
-  output();
+function logMsgSourcesProcessed(count) {
+  logMsg(`  All sources processed`);
+  logMsg(`    ${count}`.cyan + ` downloads queued`.gray)
+  logMsg();
 }
-function outputProgress(index, count, size, perc, speed = 0) {
+function logMsgProgress(index, count, size, perc, speed = 0) {
 
   const percTotal = (index + 1) / count,
         prefix    = `${rightAlignNum(index + 1, count)}/${count}`,
@@ -368,7 +368,7 @@ function outputProgress(index, count, size, perc, speed = 0) {
 
 // Helpers
 
-function output(msg, partialLine) {
+function logMsg(msg, partialLine) {
   if (partialLine) {
     process.stdout.write(msg || ``);
   } else {
@@ -376,7 +376,7 @@ function output(msg, partialLine) {
   }
 
 }
-function outputBox(msg) {
+function logInBox(msg) {
 
   let len   = msg.length,
       hLine = ``;
@@ -385,10 +385,10 @@ function outputBox(msg) {
     hLine += `\u2500`;
   }
 
-  output(`\u250C${hLine}\u2510`.cyan);
-  output(`\u2502 `.cyan + msg + ` \u2502`.cyan);
-  output(`\u2514${hLine}\u2518`.cyan);
-  output();
+  logMsg(`\u250C${hLine}\u2510`.cyan);
+  logMsg(`\u2502 `.cyan + msg + ` \u2502`.cyan);
+  logMsg(`\u2514${hLine}\u2518`.cyan);
+  logMsg();
 
 }
 
