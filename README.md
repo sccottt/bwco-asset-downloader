@@ -18,27 +18,27 @@ The downloader:
 
 Clone and run the `sccottt/bwco-asset-downloader` repo to get started:
 
-```
-git clone https://github.com/sccottt/bwco-asset-downloader
-cd bwco-asset-downloader
-npm install
-npm start -- --config config.example.json
+```bash
+$ git clone https://github.com/sccottt/bwco-asset-downloader
+$ cd bwco-asset-downloader
+$ npm install
+$ npm start -- --config config.example.json
 ```
 
 ## Usage
 
 1. [Configure](#configuration) the downloader in the `config.json` file
 1. Run the downloader:
-```
-npm run start
+```bash
+$ npm run start
 ```
 
 
 ### Custom config file
 By default, the app will read its config values from `config.json`. To use a different config file, use the `--config` argument, like so:
 
-```
-npm start -- --config config.custom.json
+```bash
+$ npm start -- --config config.custom.json
 ```
 
 _Note_: The file must be sitting in the project folder.
@@ -46,9 +46,9 @@ _Note_: The file must be sitting in the project folder.
 ### JSON only
 To skip all asset downloads and only download the JSON files, use the `-j` (or `--json_only`) argument, like so:
 
-```
-npm start -- -j
-npm start -- --json_only
+```bash
+$ npm start -- -j
+$ npm start -- --json_only
 ```
 
 _Note_: This can be used safely to update JSON files without affecting existing `assets` folders.
@@ -56,8 +56,8 @@ _Note_: This can be used safely to update JSON files without affecting existing 
 ### Temp folder
 If the downloader fails at any point, the `temp` folder will contain whatever data and assets were downloaded before the failure. This folder can be cleared out by running:
 
-```
-npm run clean
+```bash
+$ npm run clean
 ```
 
 ## Configuration
