@@ -300,10 +300,7 @@ function moveCompletedFiles() {
 
       logMsg(`    ${sourceToPath}/${source.targetFilename}`.gray);
 
-      let jsonFromPath = `${sourceFromPath}/${source.targetFilename}`,
-          jsonToPath   = `${sourceToPath}/${source.targetFilename}`;
-
-      moveFile(jsonFromPath, jsonToPath);
+      moveFile(sourceFromPath, sourceToPath, source.targetFilename);
 
     });
 
