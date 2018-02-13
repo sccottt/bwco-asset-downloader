@@ -294,8 +294,7 @@ function moveCompletedFiles() {
 
         logMsg(`    ${assetsToPath}`.gray);
 
-        rimraf.sync(assetsToPath);
-        fse.moveSync(assetsFromPath, assetsToPath);
+        moveFolder(assetsFromPath, assetsToPath);
 
       }
 
@@ -304,8 +303,7 @@ function moveCompletedFiles() {
       let jsonFromPath = `${sourceFromPath}/${source.targetFilename}`,
           jsonToPath   = `${sourceToPath}/${source.targetFilename}`;
 
-      rimraf.sync(jsonToPath);
-      fse.moveSync(jsonFromPath, jsonToPath);
+      moveFile(jsonFromPath, jsonToPath);
 
     });
 
@@ -423,4 +421,23 @@ function stringifyJSON(json, emitUnicode) {
       return '\\u'+('0000'+c.charCodeAt(0).toString(16)).slice(-4);
     }
   );
+}
+
+function moveFolder(oldPath, newPath) {
+
+  fse.ensureDirSync(newPath);
+  rimraf.sync(newPath);
+  fse.moveSync(oldPath, newPath);
+
+}
+
+function moveFile(fromFolder, toFolder, filename) {
+
+  let fromPath = `${fromFolder}/${filename}`,
+      toPath   = `${toFolder}/${filename}`;
+
+  fse.ensureDirSync(toFolder);
+  rimraf.sync(toPath);
+  fse.moveSync(fromPath, toPath);
+
 }
