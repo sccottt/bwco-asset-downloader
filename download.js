@@ -424,7 +424,7 @@ function moveFolder(oldPath, newPath) {
 
   fse.ensureDirSync(newPath);
   rimraf.sync(newPath);
-  fse.moveSync(oldPath, newPath);
+  fs.renameSync(oldPath, newPath);
 
 }
 
@@ -435,6 +435,6 @@ function moveFile(fromFolder, toFolder, filename) {
 
   fse.ensureDirSync(toFolder);
   rimraf.sync(toPath);
-  fse.moveSync(fromPath, toPath);
+  fs.renameSync(fromPath, toPath);
 
 }
