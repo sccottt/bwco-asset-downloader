@@ -8,6 +8,7 @@ const colors   = require('colors'),
       logBox   = require('log-box'),
       os       = require('os'),
       request  = require('request'),
+      rimraf   = require('rimraf'),
       rp       = require('request-promise-native'),
       progress = require('request-progress'),
       readline = require('readline'),
@@ -293,17 +294,18 @@ function moveCompletedFiles() {
 
         logMsg(`    ${assetsToPath}`.gray);
 
-        fse.moveSync(assetsFromPath, assetsToPath, {
-          overwrite: true
-        })
+        rimraf.sync(assetsToPath);
+        fse.moveSync(assetsFromPath, assetsToPath);
 
       }
 
       logMsg(`    ${sourceToPath}/${source.targetFilename}`.gray);
 
-      fse.moveSync(`${sourceFromPath}/${source.targetFilename}`, `${sourceToPath}/${source.targetFilename}`, {
-        overwrite: true
-      });
+      let jsonFromPath = `${sourceFromPath}/${source.targetFilename}`,
+          jsonToPath   = `${sourceToPath}/${source.targetFilename}`;
+
+      rimraf.sync(jsonToPath);
+      fse.moveSync(jsonFromPath, jsonToPath);
 
     });
 

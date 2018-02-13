@@ -1,6 +1,6 @@
 {
   "name": "bwco-asset-downloader",
-  "version": "0.3.2",
+  "version": "0.3.3",
   "description": "Belle & Wissell, Co. Asset Downloader",
   "main": "download.js",
   "scripts": {
@@ -27,7 +27,8 @@
     "os": "^0.1.1",
     "request": "^2.83.0",
     "request-progress": "^3.0.0",
-    "request-promise-native": "^1.0.5"
+    "request-promise-native": "^1.0.5",
+    "rimraf": "^2.6.2"
   },
   "log-box": {
     "default": {
