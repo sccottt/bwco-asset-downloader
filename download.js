@@ -6,22 +6,26 @@ const colors   = require('colors'),
       fs       = require('fs'),
       fse      = require('fs-extra'),
       logBox   = require('log-box'),
+      minimist = require('minimist'),
       os       = require('os'),
-      request  = require('request'),
-      rimraf   = require('rimraf'),
-      rp       = require('request-promise-native'),
       progress = require('request-progress'),
       readline = require('readline'),
-      argv     = require('minimist')(process.argv.slice(2));
+      request  = require('request'),
+      rimraf   = require('rimraf'),
+      rp       = require('request-promise-native');
 
-const pkg        = require('./package.json'),
+const argv       = minimist(process.argv.slice(2))
+      pkg        = require('./package.json'),
       configFile = `./` + (argv.config ? argv.config : `config.json`),
       config     = require(configFile);
 
 
 // Constants
 
-const DL_BAR_LENGTH  = 40;
+const DL_BAR_LENGTH           = 40,
+      CLEAR_TEMP_FOLDER_DELAY = 500; // in Windows, files are locked after being
+                                     // copied and seem to only be able to be deleted
+                                     // after a delay, however short
 
 
 // Vars
@@ -225,7 +229,7 @@ function startDownloadQueue(queue) {
         logMsg(`  ${queue.length}`.cyan + ` assets downloaded`);
         logMsg();
 
-        moveCompletedFiles();
+        copyCompletedFiles();
 
       }
 
@@ -237,7 +241,7 @@ function startDownloadQueue(queue) {
   if (!queue.length) {
     logMsg(`  No assets to download`);
     logMsg();
-    moveCompletedFiles();
+    copyCompletedFiles();
 
   } else {
     downloadNext();
@@ -259,13 +263,13 @@ function copyAssetToPaths(source, targets) {
 
 }
 
-function moveCompletedFiles() {
+function copyCompletedFiles() {
 
-  logBox(`Moving files to project folder`)
+  logBox(`Copying files to project folder`)
 
   config.schemas.forEach((schema, schemaIndex) => {
 
-    logMsg(`  Moving schema ${schemaIndex + 1} files`);
+    logMsg(`  Copying schema ${schemaIndex + 1} files`);
 
     let schemaFromPath = `${__dirname}/${tempFolder}/${schemaIndex}`,
         schemaToPath   = `${config.projectPath}/${config.targetFolder}`,
@@ -294,19 +298,35 @@ function moveCompletedFiles() {
 
         logMsg(`    ${assetsToPath}`.gray);
 
-        moveFolder(assetsFromPath, assetsToPath);
+        rimraf.sync(assetsToPath + `/*`);
+        fse.copySync(assetsFromPath, assetsToPath)
 
       }
 
       logMsg(`    ${sourceToPath}/${source.targetFilename}`.gray);
 
-      moveFile(sourceFromPath, sourceToPath, source.targetFilename);
+      fse.copySync(`${sourceFromPath}/${source.targetFilename}`, `${sourceToPath}/${source.targetFilename}`);
 
     });
 
     logMsg();
 
   });
+
+  logMsg(`  Clearing temporary folder`);
+  logMsg();
+
+  if (CLEAR_TEMP_FOLDER_DELAY) {
+    setTimeout(clearTempFolder, CLEAR_TEMP_FOLDER_DELAY);
+  } else {
+    clearTempFolder();
+  }
+
+}
+
+function clearTempFolder() {
+
+  rimraf.sync(`${__dirname}/${tempFolder}`);
 
   logBox(`All assets ready! Great job`)
 
@@ -418,23 +438,4 @@ function stringifyJSON(json, emitUnicode) {
       return '\\u'+('0000'+c.charCodeAt(0).toString(16)).slice(-4);
     }
   );
-}
-
-function moveFolder(oldPath, newPath) {
-
-  fse.ensureDirSync(newPath);
-  rimraf.sync(newPath);
-  fs.renameSync(oldPath, newPath);
-
-}
-
-function moveFile(fromFolder, toFolder, filename) {
-
-  let fromPath = `${fromFolder}/${filename}`,
-      toPath   = `${toFolder}/${filename}`;
-
-  fse.ensureDirSync(toFolder);
-  rimraf.sync(toPath);
-  fs.renameSync(fromPath, toPath);
-
 }
