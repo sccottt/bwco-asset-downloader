@@ -16,7 +16,7 @@ The downloader:
 
 ## Quick start
 
-Clone and run the `sccottt/bwco-asset-downloader` repo to get started:
+Clone and run the `movingobjects/bwco-asset-downloader` repo to get started:
 
 ```bash
 $ git clone https://github.com/movingobjects/bwco-asset-downloader
