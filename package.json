@@ -10,14 +10,14 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/sccottt/bwco-asset-downloader.git"
+    "url": "git+https://github.com/movingobjects/bwco-asset-downloader.git"
   },
   "author": "Belle & Wissell, Co.",
   "license": "UNLICENSED",
   "bugs": {
-    "url": "https://github.com/sccottt/bwco-asset-downloader/issues"
+    "url": "https://github.com/movingobjects/bwco-asset-downloader/issues"
   },
-  "homepage": "https://github.com/sccottt/bwco-asset-downloader",
+  "homepage": "https://github.com/movingobjects/bwco-asset-downloader",
   "dependencies": {
     "colors": "^1.1.2",
     "fs-extra": "^5.0.0",
