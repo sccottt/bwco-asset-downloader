@@ -151,7 +151,11 @@ function createDownloadObjs(assetObjs, folderDownload, folderInJson) {
 
   return Promise.all(assetObjs.map((assetObj, objIndex) => {
 
-    let url       = assetObj.node[assetObj.field];
+    let url = assetObj.node[assetObj.field];
+
+    if (!url) {
+      return Promise.resolve()
+    }
 
     return rp({
       uri: url,
