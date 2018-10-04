@@ -5,7 +5,6 @@
   "main": "download.js",
   "scripts": {
     "start": "node download.js",
-    "test": "node download.js --config config.sds.json",
     "clean": "rm -rf temp"
   },
   "repository": {
