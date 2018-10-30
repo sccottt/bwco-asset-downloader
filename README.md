@@ -22,7 +22,7 @@ Clone and run the `movingobjects/bwco-asset-downloader` repo to get started:
 $ git clone https://github.com/movingobjects/bwco-asset-downloader
 $ cd bwco-asset-downloader
 $ npm install
-$ npm start -- --config config.example.json
+$ node download --config config.example.json
 ```
 
 ## Usage
@@ -30,7 +30,7 @@ $ npm start -- --config config.example.json
 1. [Configure](#configuration) the downloader in the `config.json` file
 1. Run the downloader:
 ```bash
-$ npm run start
+$ node download
 ```
 
 
@@ -38,7 +38,7 @@ $ npm run start
 By default, the app will read its config values from `config.json`. To use a different config file, use the `--config` argument, like so:
 
 ```bash
-$ npm start -- --config config.custom.json
+$ node download --config config.custom.json
 ```
 
 _Note_: The file must be sitting in the project folder.
@@ -47,8 +47,8 @@ _Note_: The file must be sitting in the project folder.
 To skip all asset downloads and only download the JSON files, use the `-j` (or `--json_only`) argument, like so:
 
 ```bash
-$ npm start -- -j
-$ npm start -- --json_only
+$ node download -j
+$ node download --json_only
 ```
 
 _Note_: This can be used safely to update JSON files without affecting existing `assets` folders.
