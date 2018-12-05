@@ -1,4 +1,4 @@
-# Belle &amp; Wissell, Co. Asset Downloader
+# Asset Downloader
 
 Command-line Node app that creates local copies of JSON data sources and their image/video/etc asset files.
 
