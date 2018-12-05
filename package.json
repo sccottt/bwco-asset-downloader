@@ -1,7 +1,7 @@
 {
-  "name": "asset-downloader",
+  "name": "bwco-asset-downloader",
   "version": "0.4.0",
-  "description": "Asset Downloader",
+  "description": "Belle & Wissell, Co. Asset Downloader",
   "main": "download.js",
   "scripts": {
     "start": "node download.js",
@@ -9,14 +9,14 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/movingobjects/asset-downloader.git"
+    "url": "git+https://github.com/movingobjects/bwco-asset-downloader.git"
   },
   "author": "Belle & Wissell, Co.",
   "license": "UNLICENSED",
   "bugs": {
-    "url": "https://github.com/movingobjects/asset-downloader/issues"
+    "url": "https://github.com/movingobjects/bwco-asset-downloader/issues"
   },
-  "homepage": "https://github.com/movingobjects/asset-downloader",
+  "homepage": "https://github.com/movingobjects/bwco-asset-downloader",
   "dependencies": {
     "colors": "^1.1.2",
     "fs-extra": "^5.0.0",

@@ -43,7 +43,7 @@ start();
 
 function start() {
 
-  logBox(`Asset Downloader v${pkg.version}`, {
+  logBox(`BWCo Asset Downloader v${pkg.version}`, {
     margin: {
       top: 2
     }
