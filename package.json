@@ -1,9 +1,11 @@
 {
   "name": "bwco-asset-downloader",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "description": "Belle & Wissell, Co. Asset Downloader",
   "main": "download.js",
-  "bin": "download.js",
+  "bin": {
+    "download": "download.js"
+  },
   "scripts": {
     "start": "node download.js",
     "clean": "rm -rf temp"
