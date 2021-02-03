@@ -1,4 +1,4 @@
-# Belle &amp; Wissell, Co. Asset Downloader
+# Asset Downloader
 
 Command-line Node app that creates local copies of JSON data sources and their image/video/etc asset files.
 
@@ -16,11 +16,11 @@ The downloader:
 
 ## Quick start
 
-Clone and run the `movingobjects/bwco-asset-downloader` repo to get started:
+Clone and run the `movingobjects/asset-downloader` repo to get started:
 
 ```bash
-$ git clone https://github.com/movingobjects/bwco-asset-downloader
-$ cd bwco-asset-downloader
+$ git clone https://github.com/movingobjects/asset-downloader
+$ cd asset-downloader
 $ npm install
 $ node download --config config.example.json
 ```
